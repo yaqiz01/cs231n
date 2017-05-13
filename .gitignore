@@ -1,0 +1,8 @@
+.DS_Store
+driving/
+*.pyc
+*.swp
+*.flow
+scratch
+building.jpg
+kitti/
