@@ -12,6 +12,7 @@ from multiprocessing.pool import ThreadPool
 from functools import partial
 from sklearn import datasets, linear_model
 import pickle
+from convolution import *
         
 def drawflow(img, flow, step=16):
     h, w = img.shape[:2]
@@ -71,7 +72,6 @@ def getflow(prev, cur, **options):
         elif iscv3():
             flow = cv2.calcOpticalFlowFarneback(prevgray, gray, None, 0.5, 3, 15, 3, 5, 1.2, 0)
         pickle.dump(flow , open(flow_path, "wb"))
-    tp = cv2.cvtColor(cur, cv2.COLOR_BGR2GRAY)
     return flow
 
 def getAvgflow(flow, **options):
@@ -174,33 +174,73 @@ def trainSpeed(flows, labels, **options):
     agy_train = []
     agy_test = []
     for fl,lb in zip(flows, labels):
-        mk = np.random.randint(10, size=len(fl)) < pctTrain*10
-        # X_train += fl[:-numTest]
-        # X_test += fl[-numTest:]
+        mask = np.random.randint(10, size=len(fl)) < pctTrain*10
         fl = np.array(fl)
-        X_train += fl[mk].tolist()
-        X_test += fl[~mk].tolist()
+        X_train += fl[mask].tolist()
+        X_test += fl[~mask].tolist()
         lb['vf'] = np.array(lb['vf'])
-        vly_train += lb['vf'][mk].tolist()
-        vly_test += lb['vf'][~mk].tolist()
+        vly_train += lb['vf'][mask].tolist()
+        vly_test += lb['vf'][~mask].tolist()
         lb['wu'] = np.array(lb['wu'])
-        agy_train += lb['wu'][mk].tolist()
-        agy_test += lb['wu'][~mk].tolist()
+        agy_train += lb['wu'][mask].tolist()
+        agy_test += lb['wu'][~mask].tolist()
 
+    X_train = np.array(X_train)
+    X_test = np.array(X_test)
+    vly_train = np.array(vly_train)
+    vly_test = np.array(vly_test)
+    agy_train = np.array(agy_train)
+    agy_test = np.array(agy_test)
+    
     if model=='linear':
-        vlmse, vlvar, agmse, agvar = linearRegression(
+        vlmse, vlvar, agmse, agvar = linearRegressionModel(
                 X_train, X_test, 
                 vly_train, vly_test, 
                 agy_train, agy_test,
                 **options)
     elif model=='conv':
-        pass #TODO
-    
+        vlmse, vlvar, agmse, agvar = convolutionModel(
+                X_train, X_test, 
+                vly_train, vly_test, 
+                agy_train, agy_test,
+                **options)
     # The mean squared error
     print("Speed mean squared error: {:.2f}, Speed variance score: {:.2f}, Angle mean squared error:{:.2e}, Angle variance score: {:.2f}".format(vlmse, vlvar, agmse, agvar))
     return (vlmse, vlvar, agmse, agvar)
 
-def linearRegression(X_train, X_test, vly_train, vly_test, agy_train, agy_test, **options):
+def convolutionModel(X_train, X_test, vly_train, vly_test, agy_train, agy_test, **options):
+    learning_rate = 1e-3
+    tp = tf.float32
+
+    # setup input (e.g. the data that changes every batch)
+    # The first dim is None, and gets sets automatically based on batch size fed in
+    _,H,W,C = X_train.shape
+    X = tf.placeholder(tp, [None, H, W, C])
+    y = tf.placeholder(tp, [None,1])
+    is_training = tf.placeholder(tf.bool)
+    y_out = cnn(X, y ,is_training)
+
+    total_loss = tf.losses.mean_squared_error(y,y_out)
+    mean_loss = tf.reduce_mean(total_loss)
+    #optimizer = tf.train.RMSPropOptimizer(learning_rate)
+    optimizer = tf.train.AdamOptimizer(learning_rate)
+    
+    # batch normalization in tensorflow requires this extra dependency
+    extra_update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
+    with tf.control_dependencies(extra_update_ops):
+        train_step = optimizer.minimize(mean_loss)
+    
+    sess = tf.Session()
+    
+    sess.run(tf.global_variables_initializer())
+    print('Training')
+    y_train = vly_train
+    run_model(sess,is_training,X,y,y_out,mean_loss,X_train,y_train,10,64,3000,train_step,False)
+    print('Validation')
+    y_test = vly_test
+    loss = run_model(sess,is_training,X,y,y_out,mean_loss,X_test,y_test,1,64)
+
+def linearRegressionModel(X_train, X_test, vly_train, vly_test, agy_train, agy_test, **options):
     rseg = options['rseg']
     cseg = options['cseg']
     parampath = SCRATCH_PATH
@@ -237,7 +277,7 @@ def linearRegression(X_train, X_test, vly_train, vly_test, agy_train, agy_test, 
     # The coefficients
     # print('Coefficients: \n', regr.coef_)
     return (vlmse, vlvar, agmse, agvar)
-    
+
 # def main():
 
 # if __name__ == "__main__":

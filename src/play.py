@@ -64,7 +64,7 @@ def play(flows, labels, **options):
                 if model=='linear':
                     flow = polarflow(porg, org, **options)
                 elif model=='conv':
-                    flow = flow(porg, org, **options)
+                    flow = getflow(porg, org, **options)
                 flows.append(flow)
                 loadLabels(fn, headers, labels, '{0}/../oxts'.format(options['path']))
         elif mode == 'test':
