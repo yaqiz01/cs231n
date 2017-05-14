@@ -13,7 +13,7 @@ from functools import partial
 from sklearn import datasets, linear_model
 import pickle
         
-def draw_flow(img, flow, step=16):
+def drawflow(img, flow, step=16):
     h, w = img.shape[:2]
     y, x = np.mgrid[step/2:h:step, step/2:w:step].reshape(2,-1).astype(int)
     fx, fy = flow[y,x].T
@@ -24,7 +24,7 @@ def draw_flow(img, flow, step=16):
         cv2.circle(img, (x1, y1), 2, bgr('g'), -1)
     return img
 
-def draw_avgflow(img, avgflow):
+def drawAvgflow(img, avgflow):
     h, w = img.shape[:2]
     hs, ws = avgflow.shape[:2]
     hstep = h/hs
@@ -42,43 +42,44 @@ def draw_avgflow(img, avgflow):
 
 def detflow(frame, prev, cur, **options):
     flowmode = options['flowmode']
-    gray = cv2.cvtColor(cur, cv2.COLOR_BGR2GRAY)
-    prevgray = cv2.cvtColor(prev, cv2.COLOR_BGR2GRAY)
-    flow, avgflow = getflow(prevgray, gray, **options)
+    flow = getflow(prev, cur, **options)
+    avgflow = getAvgflow(flow, **options)
     if flowmode == 'allflow':
-        frame = draw_flow(frame, flow)
+        frame = drawflow(frame, flow)
     elif flowmode == 'avgflow':
-        frame = draw_flow(frame, flow)
-        frame = draw_avgflow(frame, avgflow)
+        frame = drawflow(frame, flow)
+        frame = drawAvgflow(frame, avgflow)
     return frame
 
-def getflow(prevgray, gray, **options):
-    rseg = options['rseg']
-    cseg = options['cseg']
+def getflow(prev, cur, **options):
     path = options['path']
     fn = options['fn']
-
-    # gray = np.round(np.random.rand(4,4,2)*3)
-    h, w = gray.shape[:2]
-    rstride = h / rseg
-    cstride = w / cseg
-
     flow_path = '{0}{1}.flow'.format(SCRATCH_PATH, 
       '{0}/{1}'.format(path,fn).replace('/','_').replace('..',''))
     
     if 'flowMap' in options and flow_path in options['flowMap']:
-      flow = options['flowMap'][flow_path] 
+        flow = options['flowMap'][flow_path] 
     elif isfile(flow_path):
-      flow = pickle.load(open(flow_path, "rb" )) 
-      if 'flowMap' in options:
-        options['flowMap'][flow_path] = flow
+        flow = pickle.load(open(flow_path, "rb" )) 
+        if 'flowMap' in options:
+            options['flowMap'][flow_path] = flow
     else:
-      if iscv2():
-        flow = cv2.calcOpticalFlowFarneback(prevgray, gray, 0.5, 3, 15, 3, 5, 1.2, 0)
-      elif iscv3():
-        flow = cv2.calcOpticalFlowFarneback(prevgray, gray, None, 0.5, 3, 15, 3, 5, 1.2, 0)
-      pickle.dump(flow , open(flow_path, "wb"))
+        prevgray = cv2.cvtColor(prev, cv2.COLOR_BGR2GRAY)
+        gray = cv2.cvtColor(cur, cv2.COLOR_BGR2GRAY)
+        if iscv2():
+            flow = cv2.calcOpticalFlowFarneback(prevgray, gray, 0.5, 3, 15, 3, 5, 1.2, 0)
+        elif iscv3():
+            flow = cv2.calcOpticalFlowFarneback(prevgray, gray, None, 0.5, 3, 15, 3, 5, 1.2, 0)
+        pickle.dump(flow , open(flow_path, "wb"))
+    tp = cv2.cvtColor(cur, cv2.COLOR_BGR2GRAY)
+    return flow
 
+def getAvgflow(flow, **options):
+    rseg = options['rseg']
+    cseg = options['cseg']
+    h, w = flow.shape[:2]
+    rstride = h / rseg
+    cstride = w / cseg
     # flow = gray 
     avgflow = np.ndarray((rseg, cseg, 2), dtype=flow.dtype)
     for ir in range(0, rseg):
@@ -89,7 +90,7 @@ def getflow(prevgray, gray, **options):
             cend = min(cstart+cstride, w)
             grid = flow[rstart:rend, cstart:cend]
             avgflow[ir, ic] = np.mean(grid, axis=(0,1))
-    return flow, avgflow
+    return avgflow
 
 def loadHeader(path):
     headers = {}
@@ -105,10 +106,9 @@ def loadLabels(fn, headers, labels, labelpath):
         for key in labels:
             labels[key].append(float(vals[headers[key]]))
     
-def compFlow(prev, cur, **options):
-    gray = cv2.cvtColor(cur, cv2.COLOR_BGR2GRAY)
-    prevgray = cv2.cvtColor(prev, cv2.COLOR_BGR2GRAY)
-    flow, avgflow = getflow(prevgray, gray, **options)
+def polarflow(prev, cur, **options):
+    flow = getflow(prev, cur, **options)
+    avgflow = getAvgflow(flow, **options)
     
     cplx = avgflow[:,:,0] + avgflow[:,:,1] * 1j
     cplx = cplx.flatten()
@@ -123,17 +123,23 @@ def predSpeed(im, prev, cur, labels, **options):
     if 'parampath' in options:
         parampath = options['parampath']
 
-    with open('{0}/parameters.txt'.format(parampath), 'r') as paramfile:
-        rseg, cseg = paramfile.readline().split(',')
-        rseg = int(rseg)
-        cseg = int(cseg)
-        coef_speed = paramfile.readline().split(',')
-        coef_speed = np.array(map(float, coef_speed))
-        coef_angle = paramfile.readline().split(',')
-        coef_angle = np.array(map(float, coef_angle))
+    # load parameters from file
+    params = pickle.load(open('{}/linear_reg_params.pickle'.format(parampath), "rb" ))
+    rseg = params['rseg']
+    cseg = params['cseg']
+    coef_speed = params['speed_coef']
+    coef_angle = params['angle_coef']
+    # with open('{0}/parameters.txt'.format(parampath), 'r') as paramfile:
+        # rseg, cseg = paramfile.readline().split(',')
+        # rseg = int(rseg)
+        # cseg = int(cseg)
+        # coef_speed = paramfile.readline().split(',')
+        # coef_speed = np.array(map(float, coef_speed))
+        # coef_angle = paramfile.readline().split(',')
+        # coef_angle = np.array(map(float, coef_angle))
     options['rseg'] = rseg
     options['cseg'] = cseg
-    flow = compFlow(prev, cur, **options)
+    flow = polarflow(prev, cur, **options)
     regr_speed = linear_model.LinearRegression()
     regr_speed.coef_ = coef_speed
     regr_speed.intercept_ = True 
@@ -147,11 +153,17 @@ def predSpeed(im, prev, cur, labels, **options):
 
     return im, (speed, gtspeed, angle, gtangle) 
 
-def trainSpeed(flows, labels, rseg, cseg, **options):
+def trainSpeed(flows, labels, **options):
+    """
+    Train a linear regression model for speed detection
+    
+    :param flows: averaged dense flow of multiple videos. flows[video, frame, flowmag+flowang]
+    :param labels: a dictionary of true labels of each frame 
+    :returns: this is a description of what is returned
+    :raises keyError: raises an exception
+    """
     pctTrain = 0.8
-    parampath = SCRATCH_PATH
-    if 'parampath' in options:
-        parampath = options['parampath']
+    model = options['model']
 
     numTest = int(round(len(flows)*(1-pctTrain)))
     # Split the data into training/testing sets
@@ -168,13 +180,32 @@ def trainSpeed(flows, labels, rseg, cseg, **options):
         fl = np.array(fl)
         X_train += fl[mk].tolist()
         X_test += fl[~mk].tolist()
-        lb['vf'] = np.array(np.array(lb['vf']))
+        lb['vf'] = np.array(lb['vf'])
         vly_train += lb['vf'][mk].tolist()
         vly_test += lb['vf'][~mk].tolist()
-        lb['wu'] = np.array(np.array(lb['wu']))
+        lb['wu'] = np.array(lb['wu'])
         agy_train += lb['wu'][mk].tolist()
         agy_test += lb['wu'][~mk].tolist()
+
+    if model=='linear':
+        vlmse, vlvar, agmse, agvar = linearRegression(
+                X_train, X_test, 
+                vly_train, vly_test, 
+                agy_train, agy_test,
+                **options)
+    elif model=='conv':
+        pass #TODO
     
+    # The mean squared error
+    print("Speed mean squared error: {:.2f}, Speed variance score: {:.2f}, Angle mean squared error:{:.2e}, Angle variance score: {:.2f}".format(vlmse, vlvar, agmse, agvar))
+    return (vlmse, vlvar, agmse, agvar)
+
+def linearRegression(X_train, X_test, vly_train, vly_test, agy_train, agy_test, **options):
+    rseg = options['rseg']
+    cseg = options['cseg']
+    parampath = SCRATCH_PATH
+    if 'parampath' in options:
+        parampath = options['parampath']
     # Create linear regression object
     regr_speed = linear_model.LinearRegression(fit_intercept=True)
     # Train the model using the training sets
@@ -190,17 +221,21 @@ def trainSpeed(flows, labels, rseg, cseg, **options):
     regr_angle.fit(X_train, agy_train)
     agmse = np.mean((regr_angle.predict(X_test) - agy_test) ** 2)
     agvar = regr_speed.score(X_test, agy_test)
-    
+
     # write coefficients into a file
-    with open('{0}/parameters.txt'.format(parampath), 'w') as paramfile:
-        paramfile.write(','.join(map(str, [rseg, cseg])) + '\n')
-        paramfile.write(','.join(map(str, regr_speed.coef_)) + '\n')
-        paramfile.write(','.join(map(str, regr_angle.coef_)) + '\n')
+    params = {}
+    params['rseg'] = rseg
+    params['cseg'] = cseg
+    params['speed_coef'] = regr_speed.coef_
+    params['angle_coef'] = regr_angle.coef_
+    pickle.dump(params , open('{}/linear_reg_params.pickle'.format(parampath), "wb"))
+    # with open('{0}/parameters.txt'.format(parampath), 'w') as paramfile:
+        # paramfile.write(','.join(map(str, [rseg, cseg])) + '\n')
+        # paramfile.write(','.join(map(str, regr_speed.coef_)) + '\n')
+        # paramfile.write(','.join(map(str, regr_angle.coef_)) + '\n')
 
     # The coefficients
     # print('Coefficients: \n', regr.coef_)
-    # The mean squared error
-    print("Speed mean squared error: {:.2f}, Speed variance score: {:.2f}, Angle mean squared error:{:.2e}, Angle variance score: {:.2f}".format(vlmse, vlvar, agmse, agvar))
     return (vlmse, vlvar, agmse, agvar)
     
 # def main():

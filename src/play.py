@@ -18,60 +18,66 @@ def roadSignMatching(frame, org, sn):
     img = match(sign, frame, org, draw=True, drawKeyPoint=False, ratioTestPct=0.7, minMatchCnt=5)
     return img
 
-def play(flows, labels, **opts):
-    files = [f for f in listdir(opts['path']) if isfile(join(opts['path'], f)) and f.endswith('.png')]
+def play(flows, labels, **options):
+    model = options['model']
+    mode = options['mode']
+
+    files = [f for f in listdir(options['path']) if isfile(join(options['path'], f)) and f.endswith('.png')]
     files = sorted(files)
 
-    if opts['mode'] in ['loadmatch', 'all']:
-        matches = mcread(opts['path'])
-    if opts['mode'] in ['trainspeed', 'all']:
-        headers = loadHeader('{0}/../oxts'.format(opts['path']))
+    if mode in ['loadmatch', 'all']:
+        matches = mcread(options['path'])
+    if mode in ['trainspeed', 'all']:
+        headers = loadHeader('{0}/../oxts'.format(options['path']))
 
     img = None
     icmp = None
     porg = None
-    if (opts['mode'] not in ['trainspeed']):
+    if (mode not in ['trainspeed']):
       plt.figure(dpi=140)
     for i, impath in enumerate(files): 
         fn, ext = splitext(impath)
-        if i<opts['startframe']:
+        if i<options['startframe']:
             continue
-        if opts['endframe']>0 and i>opts['endframe']:
+        if options['endframe']>0 and i>options['endframe']:
             break
-        if opts['numframe']>0 and i>(opts['startframe'] + opts['numframe']):
+        if options['numframe']>0 and i>(options['startframe'] + options['numframe']):
             break
 
         root, ext = splitext(impath)
-        im = cv2.imread(join(opts['path'], impath), cv2.IMREAD_COLOR)
+        im = cv2.imread(join(options['path'], impath), cv2.IMREAD_COLOR)
         org = im.copy()
 
-        opts['fn'] = fn
-        if opts['mode'] == 'roadsign':
-            im = roadSignMatching(im, org, opts['sign']) 
-        elif opts['mode'] == 'loadmatch':
+        options['fn'] = fn
+        if mode == 'roadsign':
+            im = roadSignMatching(im, org, options['sign']) 
+        elif mode == 'loadmatch':
             im,_ = loadMatch(im, org, icmp, fn, matches) 
-        elif opts['mode'] == 'detlight':
+        elif mode == 'detlight':
             im,icmp = detlight(im, org, mode='compare') 
-        elif opts['mode'] == 'flow':
+        elif mode == 'flow':
             if porg is not None:
-                opts['flowmode'] = 'avgflow'
-                im = detflow(im, porg, org, **opts)
-        elif opts['mode'] == 'trainspeed':
+                options['flowmode'] = 'avgflow'
+                im = detflow(im, porg, org, **options)
+        elif mode == 'trainspeed':
             if porg is not None:
-                flow = compFlow(porg, org, **opts)
+                if model=='linear':
+                    flow = polarflow(porg, org, **options)
+                elif model=='conv':
+                    flow = flow(porg, org, **options)
                 flows.append(flow)
-                loadLabels(fn, headers, labels, '{0}/../oxts'.format(opts['path']))
-        elif opts['mode'] == 'test':
+                loadLabels(fn, headers, labels, '{0}/../oxts'.format(options['path']))
+        elif mode == 'test':
             sp = 30
             sr = 30
             im = cv2.pyrMeanShiftFiltering(im, sp, sr, maxLevel=1)
-        elif opts['mode'] == 'all':
+        elif mode == 'all':
             h,w,_ = im.shape
             h = 200
             icmp = np.ones((h,w,3), np.uint8) * 255
-            im, (speed, gtspeed, angle, gtangle) = predSpeed(im, porg, org, labels, **opts)
+            im, (speed, gtspeed, angle, gtangle) = predSpeed(im, porg, org, labels, **options)
             im, lights = detlight(im, org, mode='label') 
-            if opts['detsign']:
+            if options['detsign']:
                 im, signs = loadMatch(im, org, fn, matches) 
 
             info = []
@@ -95,7 +101,7 @@ def play(flows, labels, **opts):
                     state = 'Still'
                 info.append('Current state: {0}'.format(state))
             info.append('Current lights: [{0}]'.format(','.join(lights)))
-            if opts['detsign']:
+            if options['detsign']:
                 info.append('Current signs: [{0}]'.format(','.join(signs)))
 
             h = icmp.shape[0]
@@ -108,10 +114,10 @@ def play(flows, labels, **opts):
                 elif iscv3():
                     icmp = cv2.putText(img=icmp, text=text, org=coord, fontFace=fontface, fontScale=0.6, 
                         color=bgr('k'), thickness=2, lineType=8);
-            loadLabels(fn, headers, labels, '{0}/../oxts'.format(opts['path']))
+            loadLabels(fn, headers, labels, '{0}/../oxts'.format(options['path']))
         porg = org.copy()
 
-        if opts['mode'] in ['trainspeed']:
+        if mode in ['trainspeed']:
             continue
         
         im = cv2.cvtColor(im, cv2.COLOR_BGR2RGB)
@@ -132,19 +138,19 @@ def play(flows, labels, **opts):
                 img.set_data(im)
             else:
                 img.set_data(im)
-        plt.pause(opts['delay'])
+        plt.pause(options['delay'])
         plt.draw()
 
-def trainModel(opts):
+def trainModel(options):
     flows = []
     labels = []
     dirs = [join(KITTI_PATH, d) for d in listdir(KITTI_PATH) if isdir(join(KITTI_PATH, d))]
     for vdir in dirs:
         flows.append([])
         labels.append(dict(vf=[], wu=[]))
-        opts['path'] = '{0}/data/'.format(vdir)
-        play(flows[-1], labels[-1], **opts)
-    return trainSpeed(flows, labels, opts['rseg'], opts['cseg'])
+        options['path'] = '{0}/data/'.format(vdir)
+        play(flows[-1], labels[-1], **options)
+    return trainSpeed(flows, labels, **options)
 
 def main():
     usage = "Usage: play [options --path]"
@@ -169,15 +175,17 @@ def main():
     parser.add_argument('--no-sign', dest='detsign', action='store_false',default=True,
         help='Disable sign detection')
     parser.add_argument('--sign', dest='sign', action='store', default='pedestrian_crossing_left')
-    (opts, args) = parser.parse_known_args()
+    parser.add_argument('--model', dest='model', action='store', default='linear',
+            help='Specify model for speed detection')
+    (options, args) = parser.parse_known_args()
 
-    if (opts.path==''): 
-        opts.path = '{0}2011_09_26-{1}/data'.format(KITTI_PATH, opts.demo)
+    if (options.path==''): 
+        options.path = '{0}2011_09_26-{1}/data'.format(KITTI_PATH, options.demo)
 
-    if (opts.mode=='trainspeed'):
-        trainModel(vars(opts))
+    if (options.mode=='trainspeed'):
+        trainModel(vars(options))
     else:
-        play([], dict(vf=[], wu=[]), **vars(opts))
+        play([], dict(vf=[], wu=[]), **vars(options))
 
 if __name__ == "__main__":
     main()
