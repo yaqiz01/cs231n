@@ -137,7 +137,7 @@ class Conv_Model(object):
         # compute loss for every single example and add together
         input_feed = self.create_feed_dict(X_val, y_val)
 
-        output_feed = [self.loss]
+        output_feed = self.loss
 
         loss = session.run(output_feed, feed_dict=input_feed)
 
