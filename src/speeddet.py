@@ -235,10 +235,19 @@ def convolutionModel(X_train, X_test, vly_train, vly_test, agy_train, agy_test, 
     sess.run(tf.global_variables_initializer())
     print('Training')
     y_train = vly_train
-    run_model(sess,is_training,X,y,y_out,mean_loss,X_train,y_train,10,64,3000,train_step,False)
+    run_model(sess,is_training,X,y,y_out,mean_loss,X_train,y_train, X_train.shape[0]
+            epochs=10,
+            batch_size=8,
+            print_every=1,
+            training=train_step,
+            plot_losses=False
+            )
     print('Validation')
     y_test = vly_test
-    vlmse = run_model(sess,is_training,X,y,y_out,mean_loss,X_test,y_test,1,64)
+    vlmse = run_model(sess,is_training,X,y,y_out,mean_loss,X_test,y_test,
+            epochs=1,
+            batch_size=8
+            )
 
     return (vlmse, 0.0, 0.0, 0.0)
 

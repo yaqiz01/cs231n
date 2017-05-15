@@ -26,6 +26,8 @@ def run_model(session, is_training, X, y, predict, loss_val, Xd, yd,
     variables = [l2_loss_val, loss_val]
     if training_now:
         variables[-1] = training
+
+    N = Xd.shape[0]
     
     # counter 
     iter_cnt = 0
@@ -34,9 +36,9 @@ def run_model(session, is_training, X, y, predict, loss_val, Xd, yd,
         mse = 0.0
         losses = []
         # make sure we iterate over the dataset once
-        for i in range(int(math.ceil(Xd.shape[0]/batch_size))):
+        for i in range(int(math.ceil(N/batch_size))):
             # generate indicies for the batch
-            start_idx = (i*batch_size)%X_train.shape[0]
+            start_idx = (i*batch_size) % N
             idx = train_indicies[start_idx:start_idx+batch_size]
             
             # create a feed dictionary for this batch
