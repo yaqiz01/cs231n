@@ -208,49 +208,6 @@ def trainSpeed(flows, labels, **options):
     print("Speed mean squared error: {:.2f}, Speed variance score: {:.2f}, Angle mean squared error:{:.2e}, Angle variance score: {:.2f}".format(vlmse, vlvar, agmse, agvar))
     return (vlmse, vlvar, agmse, agvar)
 
-def convolutionModel(X_train, X_test, vly_train, vly_test, agy_train, agy_test, **options):
-    print("\n\n===== START: convolutionModel ======\n\n")
-    learning_rate = 1e-3
-    tp = tf.float32
-
-    # setup input (e.g. the data that changes every batch)
-    # The first dim is None, and gets sets automatically based on batch size fed in
-    _,H,W,C = X_train.shape
-    X = tf.placeholder(tp, [None, H, W, C])
-    y = tf.placeholder(tp, [None,1])
-    is_training = tf.placeholder(tf.bool)
-    y_out = cnn(X, y ,is_training)
-
-    #total_loss = tf.losses.mean_squared_error(y,y_out)
-    mean_loss = tf.losses.mean_squared_error(y,y_out)
-    optimizer = tf.train.AdamOptimizer(learning_rate)
-    
-    # batch normalization in tensorflow requires this extra dependency
-    extra_update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
-    with tf.control_dependencies(extra_update_ops):
-        train_step = optimizer.minimize(mean_loss)
-    
-    sess = tf.Session()
-    
-    sess.run(tf.global_variables_initializer())
-    print('Training')
-    y_train = vly_train
-    run_model(sess,is_training,X,y,y_out,mean_loss,X_train,y_train,
-            epochs=10,
-            batch_size=8,
-            print_every=1,
-            training=train_step,
-            plot_losses=False
-            )
-    print('Validation')
-    y_test = vly_test
-    vlmse = run_model(sess,is_training,X,y,y_out,mean_loss,X_test,y_test,
-            epochs=1,
-            batch_size=8
-            )
-
-    return (vlmse, 0.0, 0.0, 0.0)
-
 def linearRegressionModel(X_train, X_test, vly_train, vly_test, agy_train, agy_test, **options):
     rseg = options['rseg']
     cseg = options['cseg']
