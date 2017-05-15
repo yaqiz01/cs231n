@@ -3,6 +3,8 @@ from os.path import isfile, isdir, join, splitext
 import argparse
 import numpy as np
 import cv2
+import matplotlib
+matplotlib.use('TkAgg')
 from matplotlib import pyplot as plt
 from path import *
 from util import * 

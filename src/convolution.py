@@ -7,13 +7,13 @@ import matplotlib.pyplot as plt
 def run_model(session, is_training, X, y, predict, loss_val, Xd, yd,
               epochs=1, batch_size=64, print_every=100,
               training=None, plot_losses=False):
+    print("\n\n===== START: run_model ======\n\n")
 
     # clear old variables
     tf.reset_default_graph()
     
     # have tensorflow compute l2 loss 
-    loss_val = tf.nn.l2_loss(predict - y)
-    mse_sum_val = tf.reduce_mean(loss_val)
+    l2_loss_val = tf.nn.l2_loss(predict - y)
     
     # shuffle indicies
     train_indicies = np.arange(Xd.shape[0])
@@ -23,7 +23,7 @@ def run_model(session, is_training, X, y, predict, loss_val, Xd, yd,
     
     # setting up variables we want to compute (and optimizing)
     # if we have a training function, add that to things we compute
-    variables = [loss_val, mse_val]
+    variables = [l2_loss_val, loss_val]
     if training_now:
         variables[-1] = training
     
@@ -48,21 +48,19 @@ def run_model(session, is_training, X, y, predict, loss_val, Xd, yd,
             
             # have tensorflow compute loss and mean squared error 
             # and (if given) perform a training step
-            loss, mse = session.run(variables,feed_dict=feed_dict)
+            l2_loss, _ = session.run(variables,feed_dict=feed_dict)
             
             # aggregate performance stats
-            losses.append(loss*actual_batch_size)
-            correct += np.sum(corr)
+            losses.append(l2_loss)
             
             # print every now and then
             if training_now and (iter_cnt % print_every) == 0:
                 print("Iteration {0}: with minibatch training loss = {1:.3g} and mse of {2:.2g}"\
                       .format(iter_cnt,loss,))
             iter_cnt += 1
-        total_correct = correct/Xd.shape[0]
-        total_loss = np.sum(losses)/Xd.shape[0]
-        print("Epoch {2}, Overall loss = {0:.3g} and accuracy of {1:.3g}"\
-              .format(total_loss,total_correct,e+1))
+        total_mse = np.sum(losses)/Xd.shape[0]
+        print("Epoch {1}, Overall mse = {0:.3g}"\
+              .format(total_mse,e+1))
         if plot_losses:
             plt.plot(losses)
             plt.grid(True)
@@ -70,9 +68,11 @@ def run_model(session, is_training, X, y, predict, loss_val, Xd, yd,
             plt.xlabel('minibatch number')
             plt.ylabel('minibatch loss')
             plt.show()
-    return total_loss,total_correct
+    return total_mse
 
 def cnn(X, y, is_training):
+    print("\n\n===== START: cnn ======\n\n")
+
     conv1_out = tf.layers.conv2d(inputs=X, filters=32, kernel_size=[5, 5], activation=tf.nn.relu)
     bn1_out = tf.layers.batch_normalization(conv1_out, training=is_training)
     # 15 * 15 * 32

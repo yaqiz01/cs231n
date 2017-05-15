@@ -209,6 +209,7 @@ def trainSpeed(flows, labels, **options):
     return (vlmse, vlvar, agmse, agvar)
 
 def convolutionModel(X_train, X_test, vly_train, vly_test, agy_train, agy_test, **options):
+    print("\n\n===== START: convolutionModel ======\n\n")
     learning_rate = 1e-3
     tp = tf.float32
 
@@ -220,9 +221,8 @@ def convolutionModel(X_train, X_test, vly_train, vly_test, agy_train, agy_test, 
     is_training = tf.placeholder(tf.bool)
     y_out = cnn(X, y ,is_training)
 
-    total_loss = tf.losses.mean_squared_error(y,y_out)
-    mean_loss = tf.reduce_mean(total_loss)
-    #optimizer = tf.train.RMSPropOptimizer(learning_rate)
+    #total_loss = tf.losses.mean_squared_error(y,y_out)
+    mean_loss = tf.losses.mean_squared_error(y,y_out)
     optimizer = tf.train.AdamOptimizer(learning_rate)
     
     # batch normalization in tensorflow requires this extra dependency
@@ -235,10 +235,12 @@ def convolutionModel(X_train, X_test, vly_train, vly_test, agy_train, agy_test, 
     sess.run(tf.global_variables_initializer())
     print('Training')
     y_train = vly_train
-    run_model(sess,is_training,X,y,y_out,mean_loss,X_train,y_train,10,64,3000,train_step,False)
+    run_model(sess,is_training,X,y,y_out,total_loss,X_train,y_train,10,64,3000,train_step,False)
     print('Validation')
     y_test = vly_test
-    loss = run_model(sess,is_training,X,y,y_out,mean_loss,X_test,y_test,1,64)
+    vlmse = run_model(sess,is_training,X,y,y_out,total_loss,X_test,y_test,1,64)
+
+    return (vlmse, 0.0, 0.0, 0.0)
 
 def linearRegressionModel(X_train, X_test, vly_train, vly_test, agy_train, agy_test, **options):
     rseg = options['rseg']
