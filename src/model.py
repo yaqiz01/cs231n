@@ -157,7 +157,7 @@ class Conv_Model(object):
                 logging.info("Iteration {0}: with minibatch training l2_loss = {1:.3g} and mse of {2:.2g}"\
                       .format(self.global_step, loss, loss/FLAGS.batch_size))
             prog.update(i + 1, [("train loss", loss)])
-        total_train_mse = np.sum(train_losses)/FLAGS.batch_size
+        total_train_mse = np.sum(train_losses)/X_train.shape[0]
 
         val_losses = []
         valid_examples = [X_val, y_val]
@@ -167,7 +167,7 @@ class Conv_Model(object):
             val_losses.append(loss)
             prog.update(i + 1, [("validation loss", loss)])
         logging.info("")
-        total_val_mse = np.sum(val_losses)/FLAGS.batch_size
+        total_val_mse = np.sum(val_losses)/X_val.shape[0]
         return total_train_mse, train_losses, total_val_mse, val_losses
 
     def train(self, session, X_train, X_val, vly_train, vly_val, agy_train, agy_val, **options):
