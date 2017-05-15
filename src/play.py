@@ -182,6 +182,8 @@ def main():
     parser.add_argument('--sign', dest='sign', action='store', default='pedestrian_crossing_left')
     parser.add_argument('--model', dest='model', action='store', default='linear',
             help='Specify model for speed detection')
+    parser.add_argument('--plot-losses', dest='plot_losses', action='store_true',default=False,
+        help='Enable visualization of loss')
     (options, args) = parser.parse_known_args()
 
     if (options.path==''):

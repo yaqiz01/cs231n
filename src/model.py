@@ -16,11 +16,11 @@ def cnn(X, y, is_training):
 
     conv1_out = tf.layers.conv2d(inputs=X, filters=32, kernel_size=[5, 5], activation=tf.nn.relu)
     bn1_out = tf.layers.batch_normalization(conv1_out, training=is_training)
-    pool1_out = tf.layers.max_pooling2d(inputs=bn1_out, pool_size=[2, 2], strides=2)
+    pool1_out = tf.layers.max_pooling2d(inputs=bn1_out, pool_size=[4, 4], strides=4)
 
     conv2_out = tf.layers.conv2d(inputs=pool1_out, filters=32, kernel_size=[5, 5], activation=tf.nn.relu)
     bn2_out = tf.layers.batch_normalization(conv2_out, training=is_training)
-    pool2_out = tf.layers.max_pooling2d(inputs=bn2_out, pool_size=[2, 2], strides=2)
+    pool2_out = tf.layers.max_pooling2d(inputs=bn2_out, pool_size=[4, 4], strides=4)
 
     flat_dim = np.product(pool2_out.shape[1:]).value
     pool2_out_flat = tf.reshape(pool2_out,[-1,flat_dim])
@@ -116,10 +116,11 @@ class Conv_Model(object):
         :param
         :return loss: validation loss for this batch
         """
+        pass
 
         # TODO
 
-    def validate(self, sess, X_val, y_val):
+    def validate(self, session, X_val, y_val):
         """
         Iterate through the validation dataset and determine what
         the validation cost is.
@@ -136,13 +137,13 @@ class Conv_Model(object):
         # compute loss for every single example and add together
         input_feed = self.create_feed_dict(X_val, y_val)
 
-        output_feed = [self.train_step, self.loss]
+        output_feed = [self.loss]
 
         _, loss = session.run(output_feed, feed_dict=input_feed)
 
         return loss
 
-    def run_epoch(self, sess, X_train, y_train, X_val, y_val):
+    def run_epoch(self, session, X_train, y_train, X_val, y_val):
         """
         Run 1 epoch. Train on training examples, evaluate on validation set.
         """
@@ -150,7 +151,7 @@ class Conv_Model(object):
         train_examples = [X_train, y_train]
         prog = Progbar(target=1 + int(len(X_train) / FLAGS.batch_size))
         for i, batch in enumerate(get_minibatches(train_examples, FLAGS.batch_size)):
-            loss = self.optimize(sess, *batch)
+            loss = self.optimize(session, *batch)
             train_losses.append(loss)
             if (self.global_step % FLAGS.print_every) == 0:
                 logging.info("Iteration {0}: with minibatch training l2_loss = {1:.3g} and mse of {2:.2g}"\
@@ -162,19 +163,22 @@ class Conv_Model(object):
         valid_examples = [X_val, y_val]
         prog = Progbar(target=1 + len(X_val) / FLAGS.batch_size)
         for i, batch in enumerate(get_minibatches(valid_examples, FLAGS.batch_size)):
-            loss = self.validate(sess, *batch)
+            loss = self.validate(session, *batch)
             val_losses.append(loss)
             prog.update(i + 1, [("validation loss", loss)])
+        logging.info("")
         total_val_mse = np.sum(val_losses)/FLAGS.batch_size
         return total_train_mse, train_losses, total_val_mse, val_losses
 
-    def train(self, session, X_train, X_val, vly_train, vly_val, agy_train, agy_val):
+    def train(self, session, X_train, X_val, vly_train, vly_val, agy_train, agy_val, **options):
         """
         Implement main training loop
 
         :param
         :return:
         """
+
+        plot_losses = options['plot_losses']
 
         self.setup_placeholders(X_train)
         self.setup_system()
@@ -199,9 +203,9 @@ class Conv_Model(object):
         y_val = np.reshape(vly_val, (-1, 1))
         # training
         for epoch in range(FLAGS.epochs):
-            logging.info("Epoch %d out of %d", epoch + 1, FLAGS.epochs)
+            logging.info("Epoch %d out of %d\n", epoch + 1, FLAGS.epochs)
             total_train_mse, train_losses, total_val_mse, val_losses = self.run_epoch(session, X_train, y_train, X_val, y_val)
-            print("Epoch {2}, Overall train mse = {0:.3g}, Overall val mse = {1:.3g}"\
+            logging.info("Epoch {2}, Overall train mse = {0:.3g}, Overall val mse = {1:.3g}"\
                   .format(total_train_mse, total_val_mse, epoch))
             if plot_losses:
                 plt.plot(train_losses)

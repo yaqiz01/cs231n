@@ -209,7 +209,8 @@ def trainSpeed(flows, labels, **options):
         with tf.Session() as sess:
             # clear old variables
             # tf.reset_default_graph()
-            vlmse, vlvar, agmse, agvar = conv_model.train(sess, X_train, X_test, vly_train, vly_test, agy_train, agy_test)
+            vlmse, vlvar, agmse, agvar = conv_model.train(sess, X_train, X_test, vly_train,
+                    vly_test, agy_train, agy_test, **options)
     # The mean squared error
     print("Speed mean squared error: {:.2f}, Speed variance score: {:.2f}, Angle mean squared error:{:.2e}, Angle variance score: {:.2f}".format(vlmse, vlvar, agmse, agvar))
     return (vlmse, vlvar, agmse, agvar)

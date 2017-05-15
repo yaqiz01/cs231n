@@ -28,6 +28,11 @@ def convolutionModel(X_train, X_test, vly_train, vly_test, agy_train, agy_test, 
     
     sess = tf.Session()
     
+    params = tf.trainable_variables()
+    num_params = sum(map(lambda t: np.prod(tf.shape(t.value()).eval(session=sess)), params))
+    print("Number of params: %d" % num_params)
+    return
+
     sess.run(tf.global_variables_initializer())
     print('Training')
     y_train = np.reshape(vly_train, (-1, 1))
@@ -120,25 +125,41 @@ def cnn(X, y, is_training):
 
     conv1_out = tf.layers.conv2d(inputs=X, filters=32, kernel_size=[5, 5], activation=tf.nn.relu)
     bn1_out = tf.layers.batch_normalization(conv1_out, training=is_training)
-    # 15 * 15 * 32
     pool1_out = tf.layers.max_pooling2d(inputs=bn1_out, pool_size=[2, 2], strides=2)
+    print('X.shape {}'.format(X.shape))
+    print('bn1_out.shape {}'.format(bn1_out.shape))
+    print('pool1_out.shape {}'.format(pool1_out.shape))
     
     conv2_out = tf.layers.conv2d(inputs=pool1_out, filters=32, kernel_size=[5, 5], activation=tf.nn.relu)
     bn2_out = tf.layers.batch_normalization(conv2_out, training=is_training)
-    # 5 * 5 * 32
     pool2_out = tf.layers.max_pooling2d(inputs=bn2_out, pool_size=[2, 2], strides=2)
+    print('bn2_out.shape {}'.format(bn2_out.shape))
+    print('pool2_out.shape {}'.format(pool2_out.shape))
     
     flat_dim = np.product(pool2_out.shape[1:]).value
     pool2_out_flat = tf.reshape(pool2_out,[-1,flat_dim])
     affine1_out = tf.layers.dense(inputs=pool2_out_flat, units=1024, activation=tf.nn.relu)
     bn3_out = tf.layers.batch_normalization(affine1_out, training=is_training)
     dropout1_out = tf.layers.dropout(inputs=bn3_out, rate=0.4, training=is_training)
+    print('affine1_out.shape {}'.format(affine1_out.shape))
+    print('bn3_out.shape {}'.format(bn3_out.shape))
+    print('dropout1_out.shape {}'.format(dropout1_out.shape))
     
     affine2_out = tf.layers.dense(inputs=dropout1_out, units=512, activation=tf.nn.relu)
     bn4_out = tf.layers.batch_normalization(affine2_out, training=is_training)
     dropout2_out = tf.layers.dropout(inputs=bn4_out, rate=0.4, training=is_training)
+    print('affine2_out.shape {}'.format(affine2_out.shape))
+    print('bn4_out.shape {}'.format(bn4_out.shape))
+    print('dropout2_out.shape {}'.format(dropout2_out.shape))
     
     out_dim = np.product(y.shape[1:]).value
     affine3_out = tf.layers.dense(inputs=dropout2_out, units=out_dim, activation=tf.nn.relu)
+    print('affine3_out.shape {}'.format(affine3_out.shape))
     return affine3_out
-    
+
+def cnn_dummy(X, y, is_training):
+    flat_dim = np.product(X.shape[1:]).value
+    X_flat = tf.reshape(X,[-1,flat_dim])
+    out_dim = np.product(y.shape[1:]).value
+    out = tf.layers.dense(inputs=X_flat, units=out_dim, activation=tf.nn.relu)
+    return out
