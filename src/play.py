@@ -7,12 +7,15 @@ import matplotlib
 # matplotlib.use('TkAgg')
 from matplotlib import pyplot as plt
 from path import *
-from util import * 
+from util import *
 from signdet import *
 from speeddet import *
 from lightdet import *
 import pickle
 import time
+import logging
+
+logging.basicConfig(format='%(levelname)s:%(message)s', level=logging.INFO)
 
 def roadSignMatching(frame, org, sn):
     sign = cv2.imread(signs[sn])
@@ -37,7 +40,7 @@ def play(flows, labels, **options):
     porg = None
     if (mode not in ['trainspeed']):
       plt.figure(dpi=140)
-    for i, impath in enumerate(files): 
+    for i, impath in enumerate(files):
         fn, ext = splitext(impath)
         if i<options['startframe']:
             continue
@@ -52,11 +55,11 @@ def play(flows, labels, **options):
 
         options['fn'] = fn
         if mode == 'roadsign':
-            im = roadSignMatching(im, org, options['sign']) 
+            im = roadSignMatching(im, org, options['sign'])
         elif mode == 'loadmatch':
-            im,_ = loadMatch(im, org, icmp, fn, matches) 
+            im,_ = loadMatch(im, org, icmp, fn, matches)
         elif mode == 'detlight':
-            im,icmp = detlight(im, org, mode='compare') 
+            im,icmp = detlight(im, org, mode='compare')
         elif mode == 'flow':
             if porg is not None:
                 options['flowmode'] = 'avgflow'
@@ -78,9 +81,9 @@ def play(flows, labels, **options):
             h = 200
             icmp = np.ones((h,w,3), np.uint8) * 255
             im, (speed, gtspeed, angle, gtangle) = predSpeed(im, porg, org, labels, **options)
-            im, lights = detlight(im, org, mode='label') 
+            im, lights = detlight(im, org, mode='label')
             if options['detsign']:
-                im, signs = loadMatch(im, org, fn, matches) 
+                im, signs = loadMatch(im, org, fn, matches)
 
             info = []
             info.append('Frame: {0}'.format(fn))
@@ -111,17 +114,17 @@ def play(flows, labels, **options):
                 coord = (20, h * (i+1)/(len(info)+1))
                 fontface = cv2.FONT_HERSHEY_SIMPLEX;
                 if iscv2():
-                    cv2.putText(img=icmp, text=text, org=coord, fontFace=fontface, fontScale=0.6, 
+                    cv2.putText(img=icmp, text=text, org=coord, fontFace=fontface, fontScale=0.6,
                         color=bgr('k'), thickness=2, lineType=8);
                 elif iscv3():
-                    icmp = cv2.putText(img=icmp, text=text, org=coord, fontFace=fontface, fontScale=0.6, 
+                    icmp = cv2.putText(img=icmp, text=text, org=coord, fontFace=fontface, fontScale=0.6,
                         color=bgr('k'), thickness=2, lineType=8);
             loadLabels(fn, headers, labels, '{0}/../oxts'.format(options['path']))
         porg = org.copy()
 
         if mode in ['trainspeed']:
             continue
-        
+
         im = cv2.cvtColor(im, cv2.COLOR_BGR2RGB)
         if icmp is not None:
             icmp = cv2.cvtColor(icmp, cv2.COLOR_BGR2RGB)
@@ -181,7 +184,7 @@ def main():
             help='Specify model for speed detection')
     (options, args) = parser.parse_known_args()
 
-    if (options.path==''): 
+    if (options.path==''):
         options.path = '{0}2011_09_26-{1}/data'.format(KITTI_PATH, options.demo)
 
     if (options.mode=='trainspeed'):

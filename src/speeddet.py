@@ -13,7 +13,8 @@ from functools import partial
 from sklearn import datasets, linear_model
 import pickle
 from convolution import *
-        
+from model import *
+
 def drawflow(img, flow, step=16):
     h, w = img.shape[:2]
     y, x = np.mgrid[step/2:h:step, step/2:w:step].reshape(2,-1).astype(int)
@@ -55,13 +56,13 @@ def detflow(frame, prev, cur, **options):
 def getflow(prev, cur, **options):
     path = options['path']
     fn = options['fn']
-    flow_path = '{0}{1}.flow'.format(SCRATCH_PATH, 
+    flow_path = '{0}{1}.flow'.format(SCRATCH_PATH,
       '{0}/{1}'.format(path,fn).replace('/','_').replace('..',''))
-    
+
     if 'flowMap' in options and flow_path in options['flowMap']:
-        flow = options['flowMap'][flow_path] 
+        flow = options['flowMap'][flow_path]
     elif isfile(flow_path):
-        flow = pickle.load(open(flow_path, "rb" )) 
+        flow = pickle.load(open(flow_path, "rb" ))
         if 'flowMap' in options:
             options['flowMap'][flow_path] = flow
     else:
@@ -80,7 +81,7 @@ def getAvgflow(flow, **options):
     h, w = flow.shape[:2]
     rstride = h / rseg
     cstride = w / cseg
-    # flow = gray 
+    # flow = gray
     avgflow = np.ndarray((rseg, cseg, 2), dtype=flow.dtype)
     for ir in range(0, rseg):
         rstart = ir*rstride
@@ -98,18 +99,18 @@ def loadHeader(path):
         for i, line in enumerate(dataformat):
             headers[line.split(':')[0]] = i
     return headers
-            
+
 def loadLabels(fn, headers, labels, labelpath):
     with open('{0}/data/{1}.txt'.format(labelpath, fn), 'r') as data:
         line = data.readline()
         vals = line.split(' ')
         for key in labels:
             labels[key].append(float(vals[headers[key]]))
-    
+
 def polarflow(prev, cur, **options):
     flow = getflow(prev, cur, **options)
     avgflow = getAvgflow(flow, **options)
-    
+
     cplx = avgflow[:,:,0] + avgflow[:,:,1] * 1j
     cplx = cplx.flatten()
     mag = np.absolute(cplx)
@@ -142,23 +143,23 @@ def predSpeed(im, prev, cur, labels, **options):
     flow = polarflow(prev, cur, **options)
     regr_speed = linear_model.LinearRegression()
     regr_speed.coef_ = coef_speed
-    regr_speed.intercept_ = True 
+    regr_speed.intercept_ = True
     speed = regr_speed.predict([flow])[0]
     gtspeed = labels['vf'][-1]
     regr_angle = linear_model.LinearRegression()
     regr_angle.coef_ = coef_angle
-    regr_angle.intercept_ = True 
+    regr_angle.intercept_ = True
     angle = regr_angle.predict([flow])[0]
     gtangle = np.rad2deg(labels['wu'][-1])
 
-    return im, (speed, gtspeed, angle, gtangle) 
+    return im, (speed, gtspeed, angle, gtangle)
 
 def trainSpeed(flows, labels, **options):
     """
     Train a linear regression model for speed detection
-    
+
     :param flows: averaged dense flow of multiple videos. flows[video, frame, flowmag+flowang]
-    :param labels: a dictionary of true labels of each frame 
+    :param labels: a dictionary of true labels of each frame
     :returns: this is a description of what is returned
     :raises keyError: raises an exception
     """
@@ -191,19 +192,24 @@ def trainSpeed(flows, labels, **options):
     vly_test = np.array(vly_test)
     agy_train = np.array(agy_train)
     agy_test = np.array(agy_test)
-    
+
     if model=='linear':
         vlmse, vlvar, agmse, agvar = linearRegressionModel(
-                X_train, X_test, 
-                vly_train, vly_test, 
+                X_train, X_test,
+                vly_train, vly_test,
                 agy_train, agy_test,
                 **options)
     elif model=='conv':
-        vlmse, vlvar, agmse, agvar = convolutionModel(
-                X_train, X_test, 
-                vly_train, vly_test, 
-                agy_train, agy_test,
-                **options)
+        # vlmse, vlvar, agmse, agvar = convolutionModel(
+        #         X_train, X_test,
+        #         vly_train, vly_test,
+        #         agy_train, agy_test,
+        #         **options)
+        conv_model = Conv_Model()
+        with tf.Session() as sess:
+            # clear old variables
+            # tf.reset_default_graph()
+            vlmse, vlvar, agmse, agvar = conv_model.train(sess, X_train, X_test, vly_train, vly_test, agy_train, agy_test)
     # The mean squared error
     print("Speed mean squared error: {:.2f}, Speed variance score: {:.2f}, Angle mean squared error:{:.2e}, Angle variance score: {:.2f}".format(vlmse, vlvar, agmse, agvar))
     return (vlmse, vlvar, agmse, agvar)
