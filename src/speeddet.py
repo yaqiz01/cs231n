@@ -235,7 +235,7 @@ def convolutionModel(X_train, X_test, vly_train, vly_test, agy_train, agy_test, 
     sess.run(tf.global_variables_initializer())
     print('Training')
     y_train = vly_train
-    run_model(sess,is_training,X,y,y_out,mean_loss,X_train,y_train, X_train.shape[0]
+    run_model(sess,is_training,X,y,y_out,mean_loss,X_train,y_train,
             epochs=10,
             batch_size=8,
             print_every=1,
