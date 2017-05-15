@@ -139,7 +139,7 @@ class Conv_Model(object):
 
         output_feed = [self.loss]
 
-        _, loss = session.run(output_feed, feed_dict=input_feed)
+        loss = session.run(output_feed, feed_dict=input_feed)
 
         return loss
 
