@@ -30,7 +30,7 @@ def convolutionModel(X_train, X_test, vly_train, vly_test, agy_train, agy_test, 
     
     sess.run(tf.global_variables_initializer())
     print('Training')
-    y_train = vly_train
+    y_train = np.reshape(vly_train, (-1, 1))
     run_model(sess,is_training,X,y,y_out,mean_loss,X_train,y_train,
             epochs=10,
             batch_size=8,
@@ -39,10 +39,10 @@ def convolutionModel(X_train, X_test, vly_train, vly_test, agy_train, agy_test, 
             plot_losses=False
             )
     print('Validation')
-    y_test = vly_test
+    y_test = np.reshape(vly_test, (-1, 1))
     vlmse = run_model(sess,is_training,X,y,y_out,mean_loss,X_test,y_test,
             epochs=1,
-            batch_size=8
+           batch_size=8
             )
 
     return (vlmse, 0.0, 0.0, 0.0)
@@ -100,8 +100,8 @@ def run_model(session, is_training, X, y, predict, loss_val, Xd, yd,
             
             # print every now and then
             if training_now and (iter_cnt % print_every) == 0:
-                print("Iteration {0}: with minibatch training loss = {1:.3g} and mse of {2:.2g}"\
-                      .format(iter_cnt,loss,))
+                print("Iteration {0}: with minibatch training l2_loss = {1:.3g} and mse of {2:.2g}"\
+                      .format(iter_cnt,l2_loss,l2_loss/batch_size))
             iter_cnt += 1
         total_mse = np.sum(losses)/Xd.shape[0]
         print("Epoch {1}, Overall mse = {0:.3g}"\
