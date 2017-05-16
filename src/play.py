@@ -6,7 +6,7 @@ import cv2
 import matplotlib
 # matplotlib.use('TkAgg')
 from matplotlib import pyplot as plt
-from path import *
+from _init_paths import *
 from util import *
 from signdet import *
 from speeddet import *
