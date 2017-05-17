@@ -24,9 +24,10 @@ def roadSignMatching(frame, org, sn):
     img = match(sign, frame, org, draw=True, drawKeyPoint=False, ratioTestPct=0.7, minMatchCnt=5)
     return img
 
-def play(flows, labels, **options):
+def play(flows, objchannels, labels, **options):
     model = options['model']
     mode = options['mode']
+    objmask = options['objmask']
 
     files = [f for f in listdir(options['path']) if isfile(join(options['path'], f)) and f.endswith('.png')]
     files = sorted(files)
@@ -67,6 +68,8 @@ def play(flows, labels, **options):
                 im = detflow(im, porg, org, **options)
         elif mode == 'objdet':
             scores, boxes = getObj(im, **options)
+            icmp = getObjChannel(im, scores, boxes, **options)
+            icmp = icmp[:,:,0].squeeze() # plot 1 interested channel
         elif mode == 'trainspeed':
             if porg is not None:
                 if model=='linear':
@@ -74,6 +77,12 @@ def play(flows, labels, **options):
                 elif model=='conv':
                     flow = getflow(porg, org, **options)
                 flows.append(flow)
+                if objmask:
+                    scores, boxes = getObj(im, **options)
+                    objchannel = getObjChannel(im, scores, boxes, **options)
+                else:
+                    objchannel = []
+                objchannels.append(objchannel)
                 loadLabels(fn, headers, labels, '{0}/../oxts'.format(options['path']))
         elif mode == 'test':
             sp = 30
@@ -130,26 +139,24 @@ def play(flows, labels, **options):
 
         im = cv2.cvtColor(im, cv2.COLOR_BGR2RGB)
         if icmp is not None:
-            icmp = cv2.cvtColor(icmp, cv2.COLOR_BGR2RGB)
+            if mode not in ['objdet']:
+                icmp = cv2.cvtColor(icmp, cv2.COLOR_BGR2RGB)
 
         if img is None:
             if icmp is not None:
                 imgax = plt.subplot(2,1,1)
-                img = imgax.imshow(im)
                 imgoax = plt.subplot(2,1,2)
-                imgo = plt.imshow(icmp)
             else:
                 imgax = plt.subplot()
-                img = imgax.imshow(im)
-        else:
-            if icmp is not None:
-                # imgo.set_data(icmp)
-                imgo = plt.imshow(icmp)
-                # img.set_data(im)
-                img = imgax.imshow(im)
+
+        if icmp is not None:
+            if mode in ['objdet']:
+                imgo = plt.imshow(icmp, cmap='Greys', interpolation='nearest')
             else:
-                # img.set_data(im)
-                img = imgax.imshow(im)
+                imgo = plt.imshow(icmp)
+            img = imgax.imshow(im)
+        else:
+            img = imgax.imshow(im)
         
         if mode in ['objdet'] and imgax is not None:
             drawObj(imgax, scores, boxes, **options)
@@ -161,14 +168,16 @@ def play(flows, labels, **options):
 
 def trainModel(options):
     flows = []
+    objchannels = []
     labels = []
     dirs = [join(KITTI_PATH, d) for d in listdir(KITTI_PATH) if isdir(join(KITTI_PATH, d))]
     for vdir in dirs:
         flows.append([])
+        objchannels.append([])
         labels.append(dict(vf=[], wu=[]))
         options['path'] = '{0}/data/'.format(vdir)
-        play(flows[-1], labels[-1], **options)
-    return trainSpeed(flows, labels, **options)
+        play(flows[-1], objchannels[-1], labels[-1], **options)
+    return trainSpeed(flows, objchannels, labels, **options)
 
 def main():
     usage = "Usage: play [options --path]"
@@ -202,6 +211,8 @@ def main():
         default='VGGnet_test')
     parser.add_argument('--modelpath', dest='modelpath', help='Model path',
         default='{}/model/VGGnet_fast_rcnn_iter_70000.ckpt'.format(Faster_RCNN_PATH))
+    parser.add_argument('--objmask', dest='objmask', action='store_true',default=False,
+        help='Include object mask for speed detection')
     (options, args) = parser.parse_known_args()
 
     if (options.path==''):
@@ -210,7 +221,7 @@ def main():
     if (options.mode=='trainspeed'):
         trainModel(vars(options))
     else:
-        play([], dict(vf=[], wu=[]), **vars(options))
+        play([], [], dict(vf=[], wu=[]), **vars(options))
 
 if __name__ == "__main__":
     main()

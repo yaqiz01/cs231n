@@ -203,9 +203,9 @@ class Conv_Model(object):
         y_val = np.reshape(vly_val, (-1, 1))
         # training
         for epoch in range(FLAGS.epochs):
-            logging.info("Epoch %d out of %d\n", epoch + 1, FLAGS.epochs)
+            logging.info("Epoch %d out of %d", epoch, FLAGS.epochs)
             total_train_mse, train_losses, total_val_mse, val_losses = self.run_epoch(session, X_train, y_train, X_val, y_val)
-            logging.info("Epoch {2}, Overall train mse = {0:.3g}, Overall val mse = {1:.3g}"\
+            logging.info("Epoch {2}, Overall train mse = {0:.3g}, Overall val mse = {1:.3g}\n"\
                   .format(total_train_mse, total_val_mse, epoch))
             if plot_losses:
                 plt.plot(train_losses)

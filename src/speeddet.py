@@ -111,11 +111,17 @@ def polarflow(prev, cur, **options):
     flow = getflow(prev, cur, **options)
     avgflow = getAvgflow(flow, **options)
 
+    # cplx = avgflow[:,:,0] + avgflow[:,:,1] * 1j
+    # cplx = cplx.flatten()
+    # mag = np.absolute(cplx)
+    # ang = np.angle(cplx)
+    # return mag.tolist() + ang.tolist()
+
     cplx = avgflow[:,:,0] + avgflow[:,:,1] * 1j
-    cplx = cplx.flatten()
-    mag = np.absolute(cplx)
-    ang = np.angle(cplx)
-    return mag.tolist() + ang.tolist()
+    H,W = cplx.shape
+    mag = np.reshape(np.absolute(cplx), (H,W,1))
+    ang = np.reshape(np.angle(cplx), (H,W,1))
+    return np.concatenate((mag,ang), axis=-1)
 
 def predSpeed(im, prev, cur, labels, **options):
     if prev is None:
@@ -154,7 +160,7 @@ def predSpeed(im, prev, cur, labels, **options):
 
     return im, (speed, gtspeed, angle, gtangle)
 
-def trainSpeed(flows, labels, **options):
+def trainSpeed(flows, objchannels, labels, **options):
     """
     Train a linear regression model for speed detection
 
@@ -165,6 +171,7 @@ def trainSpeed(flows, labels, **options):
     """
     pctTrain = 0.8
     model = options['model']
+    objmask = options['objmask']
 
     numTest = int(round(len(flows)*(1-pctTrain)))
     # Split the data into training/testing sets
@@ -174,11 +181,21 @@ def trainSpeed(flows, labels, **options):
     vly_test = []
     agy_train = []
     agy_test = []
-    for fl,lb in zip(flows, labels):
+    for fl,och,lb in zip(flows, objchannels, labels):
         mask = np.random.randint(10, size=len(fl)) < pctTrain*10
         fl = np.array(fl)
-        X_train += fl[mask].tolist()
-        X_test += fl[~mask].tolist()
+        if objmask:
+            och = np.array(och)
+            print(fl.shape)
+            print(och.shape)
+            xtrain = np.concatenate((fl[mask],och[mask]), axis=-1)
+            xtest = np.concatenate((fl[~mask],och[~mask]), axis=-1)
+        else:
+            xtrain = fl[mask]
+            xtest = fl[~mask]
+        print('objmask={} xtrain.shape={} xtest.shape={}'.format(objmask, xtrain.shape, xtest.shape))
+        X_train += xtrain.tolist()
+        X_test += xtest.tolist()
         lb['vf'] = np.array(lb['vf'])
         vly_train += lb['vf'][mask].tolist()
         vly_test += lb['vf'][~mask].tolist()
@@ -218,9 +235,12 @@ def trainSpeed(flows, labels, **options):
 def linearRegressionModel(X_train, X_test, vly_train, vly_test, agy_train, agy_test, **options):
     rseg = options['rseg']
     cseg = options['cseg']
+    objmask = options['objmask']
     parampath = SCRATCH_PATH
     if 'parampath' in options:
         parampath = options['parampath']
+    X_train = np.reshape(X_train, (X_train.shape[0],-1))
+    X_test = np.reshape(X_test, (X_test.shape[0],-1))
     # Create linear regression object
     regr_speed = linear_model.LinearRegression(fit_intercept=True)
     # Train the model using the training sets
@@ -243,7 +263,8 @@ def linearRegressionModel(X_train, X_test, vly_train, vly_test, agy_train, agy_t
     params['cseg'] = cseg
     params['speed_coef'] = regr_speed.coef_
     params['angle_coef'] = regr_angle.coef_
-    pickle.dump(params , open('{}/linear_reg_params.pickle'.format(parampath), "wb"))
+    om = 'om_1' if objmask else 'om_0'
+    pickle.dump(params , open('{}/linear_reg_params_{}.pickle'.format(parampath, om), "wb"))
     # with open('{0}/parameters.txt'.format(parampath), 'w') as paramfile:
         # paramfile.write(','.join(map(str, [rseg, cseg])) + '\n')
         # paramfile.write(','.join(map(str, regr_speed.coef_)) + '\n')

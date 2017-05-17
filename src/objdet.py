@@ -19,6 +19,9 @@ CLASSES = ('__background__',
            'motorbike', 'person', 'pottedplant',
            'sheep', 'sofa', 'train', 'tvmonitor')
 
+INTERESTED_CLASSES = ['car'] 
+CONF_THRESH = 0.8
+NMS_THRESH = 0.3
 
 #CLASSES = ('__background__','person','bike','motorbike','car','bus')
 
@@ -98,10 +101,10 @@ def drawObj(ax, scores, boxes, **options):
 def getObj(im, **options):
     path = options['path']
     fn = options['fn']
-    obj_path = '{0}{1}.obj'.format(SCRATCH_PATH,
+    bbox_path = '{0}{1}.bbox'.format(SCRATCH_PATH,
       '{0}/{1}'.format(path,fn).replace('/','_').replace('..',''))
-    if isfile(obj_path):
-        obj = pickle.load(open(obj_path, "rb" ))
+    if isfile(bbox_path):
+        obj = pickle.load(open(bbox_path, "rb" ))
         scores = obj['scores']
         boxes = obj['boxes']
     else:
@@ -115,8 +118,47 @@ def getObj(im, **options):
         obj = {}
         obj['scores'] = scores
         obj['boxes'] = boxes
-        pickle.dump(obj , open(obj_path, "wb"))
+        pickle.dump(obj , open(bbox_path, "wb"))
     return (scores, boxes)
+
+def objToChannel(im, scores, boxes, **options):
+    H,W,_ = im.shape
+    
+    channel = np.zeros((H,W,len(INTERESTED_CLASSES)))
+    for cls_ind, cls in enumerate(CLASSES[1:]):
+        if cls not in INTERESTED_CLASSES:
+            continue
+        cls_ind += 1 # because we skipped background
+        cls_boxes = boxes[:, 4*cls_ind:4*(cls_ind + 1)]
+        cls_scores = scores[:, cls_ind]
+        dets = np.hstack((cls_boxes,
+                          cls_scores[:, np.newaxis])).astype(np.float32)
+        keep = nms(dets, NMS_THRESH)
+        dets = dets[keep, :]
+        inds = np.where(dets[:, -1] >= CONF_THRESH)[0]
+        if len(inds) == 0:
+            continue
+        for i in inds:
+            bbox = dets[i, :4]
+            score = dets[i, -1]
+            ymin = int(np.ceil(bbox[0]))
+            xmin = int(np.ceil(bbox[1]))
+            ymax = int(np.floor(bbox[2]))
+            xmax = int(np.floor(bbox[3]))
+            channel[xmin:xmax, ymin:ymax, INTERESTED_CLASSES.index(cls)] = 1
+    return channel
+
+def getObjChannel(im, scores, boxes, **options):
+    path = options['path']
+    fn = options['fn']
+    obj_path = '{0}{1}.obj'.format(SCRATCH_PATH,
+      '{0}/{1}'.format(path,fn).replace('/','_').replace('..',''))
+    if isfile(obj_path):
+        channel = pickle.load(open(obj_path, "rb" ))
+    else:
+        channel = objToChannel(im, scores, boxes, **options)
+        pickle.dump(channel , open(obj_path, "wb"))
+    return channel
 
 def demo(image_name):
     """Detect object classes in an image using pre-computed object proposals."""
@@ -142,8 +184,6 @@ def demo(image_name):
     fig, ax = plt.subplots(figsize=(12, 12))
     ax.imshow(im, aspect='equal')
 
-    CONF_THRESH = 0.8
-    NMS_THRESH = 0.3
     for cls_ind, cls in enumerate(CLASSES[1:]):
         cls_ind += 1 # because we skipped background
         cls_boxes = boxes[:, 4*cls_ind:4*(cls_ind + 1)]
