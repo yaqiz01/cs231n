@@ -72,12 +72,12 @@ def draw_detections(class_name, dets, ax, thresh=0.5):
             plt.Rectangle((bbox[0], bbox[1]),
                           bbox[2] - bbox[0],
                           bbox[3] - bbox[1], fill=False,
-                          edgecolor='red', linewidth=3.5)
+                          edgecolor='red', linewidth=2)
             )
         ax.text(bbox[0], bbox[1] - 2,
                 '{:s} {:.3f}'.format(class_name, score),
                 bbox=dict(facecolor='blue', alpha=0.5),
-                fontsize=14, color='white')
+                fontsize=4, color='white')
 
     ax.set_title(('{} detections with '
                   'p({} | box) >= {:.1f}').format(class_name, class_name,

@@ -92,10 +92,11 @@ def play(flows, objchannels, labels, **options):
             h,w,_ = im.shape
             h = 200
             icmp = np.ones((h,w,3), np.uint8) * 255
-            im, (speed, gtspeed, angle, gtangle) = predSpeed(im, porg, org, labels, **options)
+            im, speed, gtspeed, angle, gtangle = predSpeed(im, porg, org, labels, **options)
             im, lights = detlight(im, org, mode='label')
             if options['detsign']:
                 im, signs = loadMatch(im, org, fn, matches)
+            scores, boxes = getObj(im, **options)
 
             info = []
             info.append('Frame: {0}'.format(fn))
@@ -158,7 +159,7 @@ def play(flows, objchannels, labels, **options):
         else:
             img = imgax.imshow(im)
         
-        if mode in ['objdet'] and imgax is not None:
+        if mode in ['objdet', 'all'] and imgax is not None:
             drawObj(imgax, scores, boxes, **options)
 
         plt.draw()

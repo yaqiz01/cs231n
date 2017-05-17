@@ -13,7 +13,8 @@ from functools import partial
 from sklearn import datasets, linear_model
 import pickle
 from convolution import *
-from model import *
+from convmodel import *
+from linearmodel import *
 
 def drawflow(img, flow, step=16):
     h, w = img.shape[:2]
@@ -124,41 +125,22 @@ def polarflow(prev, cur, **options):
     return np.concatenate((mag,ang), axis=-1)
 
 def predSpeed(im, prev, cur, labels, **options):
+    model = options['model']
+    objmask = options['objmask']
     if prev is None:
-        return im, (None, None, None, None)
-    parampath = SCRATCH_PATH
-    if 'parampath' in options:
-        parampath = options['parampath']
-
-    # load parameters from file
-    params = pickle.load(open('{}/linear_reg_params.pickle'.format(parampath), "rb" ))
-    rseg = params['rseg']
-    cseg = params['cseg']
-    coef_speed = params['speed_coef']
-    coef_angle = params['angle_coef']
-    # with open('{0}/parameters.txt'.format(parampath), 'r') as paramfile:
-        # rseg, cseg = paramfile.readline().split(',')
-        # rseg = int(rseg)
-        # cseg = int(cseg)
-        # coef_speed = paramfile.readline().split(',')
-        # coef_speed = np.array(map(float, coef_speed))
-        # coef_angle = paramfile.readline().split(',')
-        # coef_angle = np.array(map(float, coef_angle))
-    options['rseg'] = rseg
-    options['cseg'] = cseg
+        return im, None, None, None, None
     flow = polarflow(prev, cur, **options)
-    regr_speed = linear_model.LinearRegression()
-    regr_speed.coef_ = coef_speed
-    regr_speed.intercept_ = True
-    speed = regr_speed.predict([flow])[0]
-    gtspeed = labels['vf'][-1]
-    regr_angle = linear_model.LinearRegression()
-    regr_angle.coef_ = coef_angle
-    regr_angle.intercept_ = True
-    angle = regr_angle.predict([flow])[0]
-    gtangle = np.rad2deg(labels['wu'][-1])
+    if objmask:
+        pass
+    else:
+        X_test = flow
 
-    return im, (speed, gtspeed, angle, gtangle)
+    if model=='linear':
+        speed, angle = linearRegressionModelTest(X_test, **options)
+
+    gtspeed = labels['vf'][-1]
+    gtangle = np.rad2deg(labels['wu'][-1])
+    return im, speed, gtspeed, angle, gtangle
 
 def trainSpeed(flows, objchannels, labels, **options):
     """
@@ -211,7 +193,7 @@ def trainSpeed(flows, objchannels, labels, **options):
     agy_test = np.array(agy_test)
 
     if model=='linear':
-        vlmse, vlvar, agmse, agvar = linearRegressionModel(
+        vlmse, vlvar, agmse, agvar = linearRegressionModelTrain(
                 X_train, X_test,
                 vly_train, vly_test,
                 agy_train, agy_test,
@@ -230,48 +212,6 @@ def trainSpeed(flows, objchannels, labels, **options):
                     vly_test, agy_train, agy_test, **options)
     # The mean squared error
     print("Speed mean squared error: {:.2f}, Speed variance score: {:.2f}, Angle mean squared error:{:.2e}, Angle variance score: {:.2f}".format(vlmse, vlvar, agmse, agvar))
-    return (vlmse, vlvar, agmse, agvar)
-
-def linearRegressionModel(X_train, X_test, vly_train, vly_test, agy_train, agy_test, **options):
-    rseg = options['rseg']
-    cseg = options['cseg']
-    objmask = options['objmask']
-    parampath = SCRATCH_PATH
-    if 'parampath' in options:
-        parampath = options['parampath']
-    X_train = np.reshape(X_train, (X_train.shape[0],-1))
-    X_test = np.reshape(X_test, (X_test.shape[0],-1))
-    # Create linear regression object
-    regr_speed = linear_model.LinearRegression(fit_intercept=True)
-    # Train the model using the training sets
-    regr_speed.fit(X_train, vly_train)
-    vlmse = np.mean((regr_speed.predict(X_test) - vly_test) ** 2)
-    vlvar = regr_speed.score(X_test, vly_test)
-
-    agy_train = np.rad2deg(agy_train)
-    agy_test = np.rad2deg(agy_test)
-    # Create linear regression object
-    regr_angle = linear_model.LinearRegression(fit_intercept=True)
-    # Train the model using the training sets
-    regr_angle.fit(X_train, agy_train)
-    agmse = np.mean((regr_angle.predict(X_test) - agy_test) ** 2)
-    agvar = regr_speed.score(X_test, agy_test)
-
-    # write coefficients into a file
-    params = {}
-    params['rseg'] = rseg
-    params['cseg'] = cseg
-    params['speed_coef'] = regr_speed.coef_
-    params['angle_coef'] = regr_angle.coef_
-    om = 'om_1' if objmask else 'om_0'
-    pickle.dump(params , open('{}/linear_reg_params_{}.pickle'.format(parampath, om), "wb"))
-    # with open('{0}/parameters.txt'.format(parampath), 'w') as paramfile:
-        # paramfile.write(','.join(map(str, [rseg, cseg])) + '\n')
-        # paramfile.write(','.join(map(str, regr_speed.coef_)) + '\n')
-        # paramfile.write(','.join(map(str, regr_angle.coef_)) + '\n')
-
-    # The coefficients
-    # print('Coefficients: \n', regr.coef_)
     return (vlmse, vlvar, agmse, agvar)
 
 # def main():
