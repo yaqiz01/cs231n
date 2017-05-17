@@ -7,3 +7,4 @@ scratch
 building.jpg
 kitti/
 .env
+Faster-RCNN_TF/model/

@@ -33,3 +33,4 @@ DATA_PATH='../driving/'
 SIGN_PATH='../signs/'
 KITTI_PATH='../kitti/'
 SCRATCH_PATH = '../scratch/'
+Faster_RCNN_PATH = osp.join(this_dir, '..', 'Faster-RCNN_TF/')

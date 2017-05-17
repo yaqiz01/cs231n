@@ -10,7 +10,7 @@ import os, sys, cv2
 from os.path import isfile, isdir, join, splitext
 import argparse
 from networks.factory import get_network
-
+import pickle
 
 CLASSES = ('__background__',
            'aeroplane', 'bicycle', 'bird', 'boat',
@@ -22,7 +22,10 @@ CLASSES = ('__background__',
 
 #CLASSES = ('__background__','person','bike','motorbike','car','bus')
 
-def vis_detections(im, class_name, dets,ax, thresh=0.5):
+sess = None
+net = None
+
+def vis_detections(im, class_name, dets, ax, thresh=0.5):
     """Draw detected bounding boxes."""
     inds = np.where(dets[:, -1] >= thresh)[0]
     if len(inds) == 0:
@@ -52,8 +55,70 @@ def vis_detections(im, class_name, dets,ax, thresh=0.5):
     plt.draw()
     plt.show()
 
+def draw_detections(class_name, dets, ax, thresh=0.5):
+    """Draw detected bounding boxes."""
+    inds = np.where(dets[:, -1] >= thresh)[0]
+    if len(inds) == 0:
+        return
 
-def demo(sess, net, image_name):
+    for i in inds:
+        bbox = dets[i, :4]
+        score = dets[i, -1]
+
+        ax.add_patch(
+            plt.Rectangle((bbox[0], bbox[1]),
+                          bbox[2] - bbox[0],
+                          bbox[3] - bbox[1], fill=False,
+                          edgecolor='red', linewidth=3.5)
+            )
+        ax.text(bbox[0], bbox[1] - 2,
+                '{:s} {:.3f}'.format(class_name, score),
+                bbox=dict(facecolor='blue', alpha=0.5),
+                fontsize=14, color='white')
+
+    ax.set_title(('{} detections with '
+                  'p({} | box) >= {:.1f}').format(class_name, class_name,
+                                                  thresh),
+                  fontsize=14)
+
+def drawObj(ax, scores, boxes, **options):
+    # Visualize detections for each class
+    CONF_THRESH = 0.8
+    NMS_THRESH = 0.3
+    for cls_ind, cls in enumerate(CLASSES[1:]):
+        cls_ind += 1 # because we skipped background
+        cls_boxes = boxes[:, 4*cls_ind:4*(cls_ind + 1)]
+        cls_scores = scores[:, cls_ind]
+        dets = np.hstack((cls_boxes,
+                          cls_scores[:, np.newaxis])).astype(np.float32)
+        keep = nms(dets, NMS_THRESH)
+        dets = dets[keep, :]
+        draw_detections(cls, dets, ax, thresh=CONF_THRESH)
+
+def getObj(im, **options):
+    path = options['path']
+    fn = options['fn']
+    obj_path = '{0}{1}.obj'.format(SCRATCH_PATH,
+      '{0}/{1}'.format(path,fn).replace('/','_').replace('..',''))
+    if isfile(obj_path):
+        obj = pickle.load(open(obj_path, "rb" ))
+        scores = obj['scores']
+        boxes = obj['boxes']
+    else:
+        timer = Timer()
+        timer.tic()
+        initSession(**options)
+        scores, boxes = im_detect(sess, net, im)
+        timer.toc()
+        print ('Detection took {:.3f}s for '
+               '{:d} object proposals').format(timer.total_time, boxes.shape[0])
+        obj = {}
+        obj['scores'] = scores
+        obj['boxes'] = boxes
+        pickle.dump(obj , open(obj_path, "wb"))
+    return (scores, boxes)
+
+def demo(image_name):
     """Detect object classes in an image using pre-computed object proposals."""
 
     # Load the demo image
@@ -63,12 +128,14 @@ def demo(sess, net, image_name):
     im = cv2.imread(im_file)
 
     # Detect all object classes and regress object bounds
-    timer = Timer()
-    timer.tic()
-    scores, boxes = im_detect(sess, net, im)
-    timer.toc()
-    print ('Detection took {:.3f}s for '
-           '{:d} object proposals').format(timer.total_time, boxes.shape[0])
+    # timer = Timer()
+    # timer.tic()
+    # scores, boxes = im_detect(sess, net, im)
+    # timer.toc()
+    # print ('Detection took {:.3f}s for '
+           # '{:d} object proposals').format(timer.total_time, boxes.shape[0])
+    options = {'path':args.path, 'fn':image_name}
+    scores, boxes = getObj(im, **options)
 
     # Visualize detections for each class
     im = im[:, :, (2, 1, 0)]
@@ -87,6 +154,27 @@ def demo(sess, net, image_name):
         dets = dets[keep, :]
         vis_detections(im, cls, dets, ax, thresh=CONF_THRESH)
 
+def initSession(**options):
+    global sess, net
+    if sess is not None and net is not None:
+        return
+    # init session
+    sess = tf.Session(config=tf.ConfigProto(allow_soft_placement=True))
+    # load network
+    net = get_network(options['net'])
+    # load model
+    saver = tf.train.Saver(write_version=tf.train.SaverDef.V1)
+    saver.restore(sess, options['modelpath'])
+   
+    #sess.run(tf.initialize_all_variables())
+
+    print '\n\nLoaded network {:s}'.format(options['modelpath'])
+
+    # Warmup on a dummy image
+    im = 128 * np.ones((300, 300, 3), dtype=np.uint8)
+    for i in xrange(2):
+        _, _= im_detect(sess, net, im)
+
 def parse_args():
     """Parse input arguments."""
     parser = argparse.ArgumentParser(description='Faster R-CNN object detection')
@@ -95,9 +183,9 @@ def parse_args():
     parser.add_argument('--cpu', dest='cpu_mode',
                         help='Use CPU mode (overrides --gpu)',
                         action='store_true')
-    parser.add_argument('--net', dest='demo_net', help='Network to use [vgg16]',
+    parser.add_argument('--net', dest='net', help='Network to use [vgg16]',
                         default='VGGnet_test')
-    parser.add_argument('--model', dest='model', help='Model path',
+    parser.add_argument('--modelpath', dest='modelpath', help='Model path',
                         default=' ')
     parser.add_argument('--path', dest='path', action='store',
             default='{0}2011_09_26-1/data'.format(KITTI_PATH),
@@ -112,26 +200,10 @@ if __name__ == '__main__':
     global args
     args = parse_args()
 
-    if args.model == ' ':
+    if args.modelpath == ' ':
         raise IOError(('Error: Model not found.\n'))
         
-    # init session
-    sess = tf.Session(config=tf.ConfigProto(allow_soft_placement=True))
-    # load network
-    net = get_network(args.demo_net)
-    # load model
-    saver = tf.train.Saver(write_version=tf.train.SaverDef.V1)
-    saver.restore(sess, args.model)
-   
-    #sess.run(tf.initialize_all_variables())
-
-    print '\n\nLoaded network {:s}'.format(args.model)
-
-    # Warmup on a dummy image
-    im = 128 * np.ones((300, 300, 3), dtype=np.uint8)
-    for i in xrange(2):
-        _, _= im_detect(sess, net, im)
-
+    initSession(**vars(args))
     # im_names = ['000456.jpg', '000542.jpg', '001150.jpg',
                 # '001763.jpg', '004545.jpg']
 
@@ -140,5 +212,5 @@ if __name__ == '__main__':
     for im_name in im_names:
         print '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~'
         print 'Demo for {}/{}'.format(args.path, im_name)
-        demo(sess, net, im_name)
+        demo(im_name)
 

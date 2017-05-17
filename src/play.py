@@ -10,6 +10,7 @@ from _init_paths import *
 from util import *
 from signdet import *
 from speeddet import *
+from objdet import *
 from lightdet import *
 import pickle
 import time
@@ -64,6 +65,8 @@ def play(flows, labels, **options):
             if porg is not None:
                 options['flowmode'] = 'avgflow'
                 im = detflow(im, porg, org, **options)
+        elif mode == 'objdet':
+            scores, boxes = getObj(im, **options)
         elif mode == 'trainspeed':
             if porg is not None:
                 if model=='linear':
@@ -131,20 +134,30 @@ def play(flows, labels, **options):
 
         if img is None:
             if icmp is not None:
-                plt.subplot(2,1,1)
-                img = plt.imshow(im)
-                plt.subplot(2,1,2)
+                imgax = plt.subplot(2,1,1)
+                img = imgax.imshow(im)
+                imgoax = plt.subplot(2,1,2)
                 imgo = plt.imshow(icmp)
             else:
-                img = plt.imshow(im)
+                imgax = plt.subplot()
+                img = imgax.imshow(im)
         else:
             if icmp is not None:
-                imgo.set_data(icmp)
-                img.set_data(im)
+                # imgo.set_data(icmp)
+                imgo = plt.imshow(icmp)
+                # img.set_data(im)
+                img = imgax.imshow(im)
             else:
-                img.set_data(im)
-        plt.pause(options['delay'])
+                # img.set_data(im)
+                img = imgax.imshow(im)
+        
+        if mode in ['objdet'] and imgax is not None:
+            drawObj(imgax, scores, boxes, **options)
+
         plt.draw()
+        plt.pause(options['delay'])
+        if imgax is not None:
+            imgax.clear()
 
 def trainModel(options):
     flows = []
@@ -172,7 +185,8 @@ def main():
             help='Ending frame to play, -1 for last frame')
     parser.add_argument('--num-frame', dest='numframe', nargs='?', default=-1, type=int,
             help='Number of frame to play, -1 for all frames')
-    parser.add_argument('--mode', dest='mode', action='store', default='roadsign')
+    parser.add_argument('--mode', dest='mode', action='store', default='roadsign',
+            help='Supporting mode: all, loadmatch, roadsign, detlight, flow, test, trainspeed, objdet')
     parser.add_argument('--rseg', dest='rseg', nargs='?', default=3, type=int,
             help='Number of vertical segmentation in computing averaged flow')
     parser.add_argument('--cseg', dest='cseg', nargs='?', default=11, type=int,
@@ -184,6 +198,10 @@ def main():
             help='Specify model for speed detection')
     parser.add_argument('--plot-losses', dest='plot_losses', action='store_true',default=False,
         help='Enable visualization of loss')
+    parser.add_argument('--net', dest='net', help='Network to use [vgg16]',
+        default='VGGnet_test')
+    parser.add_argument('--modelpath', dest='modelpath', help='Model path',
+        default='{}/model/VGGnet_fast_rcnn_iter_70000.ckpt'.format(Faster_RCNN_PATH))
     (options, args) = parser.parse_known_args()
 
     if (options.path==''):
