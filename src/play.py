@@ -88,6 +88,7 @@ def play(speedXs, labels, **options):
                 speedXs.append(speedX)
                 # print('speedmode={} speedX.shape={}'.format(speedmode, np.array(speedX).shape))
                 loadLabels(fn, headers, labels, '{0}/../oxts'.format(options['path']))
+                return speedXs, labels
         elif mode == 'test':
             sp = 30
             sr = 30
@@ -162,7 +163,7 @@ def play(speedXs, labels, **options):
             img = imgax.imshow(im)
         else:
             img = imgax.imshow(im)
-        
+
         if mode in ['objdet', 'all'] and imgax is not None:
             drawObj(imgax, scores, boxes, **options)
 
@@ -176,10 +177,12 @@ def trainModel(**options):
     labels = []
     dirs = [join(KITTI_PATH, d) for d in listdir(KITTI_PATH) if isdir(join(KITTI_PATH, d))]
     for vdir in dirs:
-        speedXs.append([])
-        labels.append(dict(vf=[], wu=[]))
+        # speedXs.append([])
+        # labels.append(dict(vf=[], wu=[]))
         options['path'] = '{0}/data/'.format(vdir)
-        play(speedXs[-1], labels[-1], **options)
+        speedX, label = play([], dict(vf=[], wu=[]), **options)
+        speedXs.append(speedX)
+        labels.append(label)
     return trainSpeed(speedXs, labels, **options)
 
 def main():
@@ -230,14 +233,14 @@ def main():
         options['objmask'] = False
         options['imgchannel'] = False
     if (options['speedmode']==1):
-        options['objmask'] = True 
+        options['objmask'] = True
         options['imgchannel'] = False
     if (options['speedmode']==2):
-        options['objmask'] = False 
-        options['imgchannel'] = True 
+        options['objmask'] = False
+        options['imgchannel'] = True
     if (options['speedmode']==3):
-        options['objmask'] = True 
-        options['imgchannel'] = True 
+        options['objmask'] = True
+        options['imgchannel'] = True
 
     if (options['mode']=='trainspeed'):
         trainModel(**options)
