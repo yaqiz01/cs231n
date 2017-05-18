@@ -196,7 +196,7 @@ class ConvModel(object):
         self.setup_placeholders(X_train)
         self.setup_system()
         self.setup_loss()
-        #self.saver = tf.train.Saver(max_to_keep=50)
+        self.saver = tf.train.Saver(max_to_keep=50)
 
         # print number of parameters
         params = tf.trainable_variables()
