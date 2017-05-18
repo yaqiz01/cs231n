@@ -24,10 +24,12 @@ def roadSignMatching(frame, org, sn):
     img = match(sign, frame, org, draw=True, drawKeyPoint=False, ratioTestPct=0.7, minMatchCnt=5)
     return img
 
-def play(flows, objchannels, labels, **options):
+def play(speedXs, labels, **options):
     model = options['model']
     mode = options['mode']
+    speedmode = options['speedmode']
     objmask = options['objmask']
+    imgmask = options['imgmask']
 
     files = [f for f in listdir(options['path']) if isfile(join(options['path'], f)) and f.endswith('.png')]
     files = sorted(files)
@@ -76,13 +78,15 @@ def play(flows, objchannels, labels, **options):
                     flow = polarflow(porg, org, **options)
                 elif model=='conv':
                     flow = getflow(porg, org, **options)
-                flows.append(flow)
+                speedX = flow
                 if objmask:
                     scores, boxes = getObj(im, **options)
                     objchannel = getObjChannel(im, scores, boxes, **options)
-                else:
-                    objchannel = []
-                objchannels.append(objchannel)
+                    speedX = np.concatenate((speedX,objchannel), axis=-1)
+                if imgmask:
+                    speedX = np.concatenate((speedX,im), axis=-1)
+                speedXs.append(speedX)
+                # print('speedmode={} speedX.shape={}'.format(speedmode, np.array(speedX).shape))
                 loadLabels(fn, headers, labels, '{0}/../oxts'.format(options['path']))
         elif mode == 'test':
             sp = 30
@@ -167,18 +171,16 @@ def play(flows, objchannels, labels, **options):
         if imgax is not None:
             imgax.clear()
 
-def trainModel(options):
-    flows = []
-    objchannels = []
+def trainModel(**options):
+    speedXs = []
     labels = []
     dirs = [join(KITTI_PATH, d) for d in listdir(KITTI_PATH) if isdir(join(KITTI_PATH, d))]
     for vdir in dirs:
-        flows.append([])
-        objchannels.append([])
+        speedXs.append([])
         labels.append(dict(vf=[], wu=[]))
         options['path'] = '{0}/data/'.format(vdir)
-        play(flows[-1], objchannels[-1], labels[-1], **options)
-    return trainSpeed(flows, objchannels, labels, **options)
+        play(speedXs[-1], labels[-1], **options)
+    return trainSpeed(speedXs, labels, **options)
 
 def main():
     usage = "Usage: play [options --path]"
@@ -212,17 +214,32 @@ def main():
         default='VGGnet_test')
     parser.add_argument('--modelpath', dest='modelpath', help='Model path',
         default='{}/model/VGGnet_fast_rcnn_iter_70000.ckpt'.format(Faster_RCNN_PATH))
-    parser.add_argument('--objmask', dest='objmask', action='store_true',default=False,
-        help='Include object mask for speed detection')
+    parser.add_argument('--speedmode', dest='speedmode', nargs='?', default=0, type=int,
+            help='Amount of delay between images')
     (options, args) = parser.parse_known_args()
 
     if (options.path==''):
         options.path = '{0}2011_09_26-{1}/data'.format(KITTI_PATH, options.demo)
 
-    if (options.mode=='trainspeed'):
-        trainModel(vars(options))
+    options = vars(options)
+
+    if (options['speedmode']==0):
+        options['objmask'] = False
+        options['imgmask'] = False
+    if (options['speedmode']==1):
+        options['objmask'] = True 
+        options['imgmask'] = False
+    if (options['speedmode']==2):
+        options['objmask'] = False 
+        options['imgmask'] = True 
+    if (options['speedmode']==3):
+        options['objmask'] = True 
+        options['imgmask'] = True 
+
+    if (options['mode']=='trainspeed'):
+        trainModel(**options)
     else:
-        play([], [], dict(vf=[], wu=[]), **vars(options))
+        play([], dict(vf=[], wu=[]), **options)
 
 if __name__ == "__main__":
     main()

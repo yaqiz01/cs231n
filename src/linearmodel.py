@@ -17,7 +17,7 @@ import pickle
 def linearRegressionModelTrain(X_train, X_test, vly_train, vly_test, agy_train, agy_test, **options):
     rseg = options['rseg']
     cseg = options['cseg']
-    objmask = options['objmask']
+    speedmode = options['speedmode']
     parampath = SCRATCH_PATH
     if 'parampath' in options:
         parampath = options['parampath']
@@ -45,8 +45,7 @@ def linearRegressionModelTrain(X_train, X_test, vly_train, vly_test, agy_train, 
     params['cseg'] = cseg
     params['speed_coef'] = regr_speed.coef_
     params['angle_coef'] = regr_angle.coef_
-    om = 'om_1' if objmask else 'om_0'
-    pickle.dump(params , open('{}/linear_reg_params_{}.pickle'.format(parampath, om), "wb"))
+    pickle.dump(params , open('{}/linear_reg_speedmode_{}.pickle'.format(parampath, speedmode), "wb"))
     # with open('{0}/parameters.txt'.format(parampath), 'w') as paramfile:
         # paramfile.write(','.join(map(str, [rseg, cseg])) + '\n')
         # paramfile.write(','.join(map(str, regr_speed.coef_)) + '\n')
@@ -60,10 +59,11 @@ def linearRegressionModelTest(X_test, **options):
     parampath = SCRATCH_PATH
     if 'parampath' in options:
         parampath = options['parampath']
+    speedmode = options['speedmode']
 
     X_test = np.reshape([X_test], (1,-1))
     # load parameters from file
-    params = pickle.load(open('{}/linear_reg_params.pickle'.format(parampath), "rb" ))
+    params = pickle.load(open('{}/linear_reg_speedmode_{}.pickle'.format(parampath, speedmode), "rb" ))
     rseg = params['rseg']
     cseg = params['cseg']
     options['rseg'] = rseg

@@ -142,11 +142,11 @@ def predSpeed(im, prev, cur, labels, **options):
     gtangle = np.rad2deg(labels['wu'][-1])
     return im, speed, gtspeed, angle, gtangle
 
-def trainSpeed(flows, objchannels, labels, **options):
+def trainSpeed(speedXs, labels, **options):
     """
     Train a linear regression model for speed detection
 
-    :param flows: averaged dense flow of multiple videos. flows[video, frame, flowmag+flowang]
+    :param speedXs: averaged dense flow of multiple videos. speedXs[video, frame, flowmag+flowang]
     :param labels: a dictionary of true labels of each frame
     :returns: this is a description of what is returned
     :raises keyError: raises an exception
@@ -155,7 +155,7 @@ def trainSpeed(flows, objchannels, labels, **options):
     model = options['model']
     objmask = options['objmask']
 
-    numTest = int(round(len(flows)*(1-pctTrain)))
+    numTest = int(round(len(speedXs)*(1-pctTrain)))
     # Split the data into training/testing sets
     X_train = []
     X_test = []
@@ -163,19 +163,11 @@ def trainSpeed(flows, objchannels, labels, **options):
     vly_test = []
     agy_train = []
     agy_test = []
-    for fl,och,lb in zip(flows, objchannels, labels):
-        mask = np.random.randint(10, size=len(fl)) < pctTrain*10
-        fl = np.array(fl)
-        if objmask:
-            och = np.array(och)
-            print(fl.shape)
-            print(och.shape)
-            xtrain = np.concatenate((fl[mask],och[mask]), axis=-1)
-            xtest = np.concatenate((fl[~mask],och[~mask]), axis=-1)
-        else:
-            xtrain = fl[mask]
-            xtest = fl[~mask]
-        print('objmask={} xtrain.shape={} xtest.shape={}'.format(objmask, xtrain.shape, xtest.shape))
+    for speedX,lb in zip(speedXs, labels):
+        mask = np.random.randint(10, size=len(speedX)) < pctTrain*10
+        speedX = np.array(speedX)
+        xtrain = speedX[mask]
+        xtest = speedX[~mask]
         X_train += xtrain.tolist()
         X_test += xtest.tolist()
         lb['vf'] = np.array(lb['vf'])
