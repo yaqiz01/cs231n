@@ -3,7 +3,7 @@ from __future__ import print_function
 
 import logging
 import os
-import datetime
+from datetime import datetime
 import tensorflow as tf
 import numpy as np
 from util import get_minibatches, Progbar
