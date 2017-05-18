@@ -1,7 +1,7 @@
 TF_INC=$(python -c 'import tensorflow as tf; print(tf.sysconfig.get_include())')
 
 CUDA_PATH=/usr/local/cuda/
-CXXFLAGS=''
+CXXFLAGS='-D_GLIBCXX_USE_CXX11_ABI=0'
 
 if [[ "$OSTYPE" =~ ^darwin ]]; then
 	CXXFLAGS+='-undefined dynamic_lookup'
