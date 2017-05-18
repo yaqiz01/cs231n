@@ -154,6 +154,7 @@ def trainSpeed(speedXs, labels, **options):
     pctTrain = 0.8
     model = options['model']
     objmask = options['objmask']
+    print('Start training speed ...')
 
     numTest = int(round(len(speedXs)*(1-pctTrain)))
     # Split the data into training/testing sets
@@ -179,6 +180,7 @@ def trainSpeed(speedXs, labels, **options):
 
     X_train = np.array(X_train)
     X_test = np.array(X_test)
+    print('X_train.shape={} X_test.shape={}'.format(X_train, X_test))
     vly_train = np.array(vly_train)
     vly_test = np.array(vly_test)
     agy_train = np.array(agy_train)

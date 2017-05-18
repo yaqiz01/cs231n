@@ -9,3 +9,5 @@ kitti/
 .env
 Faster-RCNN_TF/model/
 opencv/
+tags
+*.log
