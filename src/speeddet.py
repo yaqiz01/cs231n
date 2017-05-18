@@ -178,9 +178,6 @@ def trainSpeed(speedXs, labels, **options):
         agy_test += lb['wu'][~mask].tolist()
 
     X_train = np.array(X_train)
-    print(X_train.shape)
-    X_test = np.array(X_test) 
-    print(X_test.shape)
     X_test = np.array(X_test)
     vly_train = np.array(vly_train)
     vly_test = np.array(vly_test)

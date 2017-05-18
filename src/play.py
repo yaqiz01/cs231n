@@ -86,10 +86,8 @@ def play(speedXs, labels, **options):
                 if imgchannel:
                     speedX = np.concatenate((speedX,im), axis=-1)
                 speedXs.append(speedX)
-                print('speedXs.shape={}'.format(np.array(speedXs).shape))
-		print('speedmode={} speedX.shape={}'.format(speedmode, np.array(speedX).shape))
+                # print('speedmode={} speedX.shape={}'.format(speedmode, np.array(speedX).shape))
                 loadLabels(fn, headers, labels, '{0}/../oxts'.format(options['path']))
-                return speedXs, labels
         elif mode == 'test':
             sp = 30
             sr = 30
@@ -164,7 +162,7 @@ def play(speedXs, labels, **options):
             img = imgax.imshow(im)
         else:
             img = imgax.imshow(im)
-
+        
         if mode in ['objdet', 'all'] and imgax is not None:
             drawObj(imgax, scores, boxes, **options)
 
@@ -178,14 +176,10 @@ def trainModel(**options):
     labels = []
     dirs = [join(KITTI_PATH, d) for d in listdir(KITTI_PATH) if isdir(join(KITTI_PATH, d))]
     for vdir in dirs:
-        # speedXs.append([])
-        # labels.append(dict(vf=[], wu=[]))
-        print('before play:  speedXs.shape={}'.format(np.array(speedXs).shape))
+        speedXs.append([])
+        labels.append(dict(vf=[], wu=[]))
         options['path'] = '{0}/data/'.format(vdir)
-        speedX, label = play([], dict(vf=[], wu=[]), **options)
-        speedXs.append(speedX)
-        labels.append(label)
-        print('speedXs.shape={}'.format(np.array(speedXs).shape))
+        play(speedXs[-1], labels[-1], **options)
     return trainSpeed(speedXs, labels, **options)
 
 def main():
@@ -236,14 +230,14 @@ def main():
         options['objmask'] = False
         options['imgchannel'] = False
     if (options['speedmode']==1):
-        options['objmask'] = True
+        options['objmask'] = True 
         options['imgchannel'] = False
     if (options['speedmode']==2):
-        options['objmask'] = False
-        options['imgchannel'] = True
+        options['objmask'] = False 
+        options['imgchannel'] = True 
     if (options['speedmode']==3):
-        options['objmask'] = True
-        options['imgchannel'] = True
+        options['objmask'] = True 
+        options['imgchannel'] = True 
 
     if (options['mode']=='trainspeed'):
         trainModel(**options)
