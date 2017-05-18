@@ -234,5 +234,5 @@ class ConvModel(object):
         if not os.path.exists(model_path):
             os.makedirs(model_path)
         logging.info("Saving model parameters...")
-        self.saver.save(session, model_path + "model.weights")
+        self.saver.save(self.session, model_path + "model.weights")
         return (total_val_mse, 0, 0, 0)
