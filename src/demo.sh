@@ -16,7 +16,7 @@
 
 #python play.py --mode trainspeed --model conv --path /Users/Yaqi/ee368/kitti/2011_09_26-3/data --num-frame 10
 #python play.py --mode objdet --path /Users/Yaqi/ee368/kitti/2011_09_26-1/data --num-frame 20 --delay 0.5
-python play.py --mode trainspeed --model conv --speedmode 0 --path ../kitti/2011_09_26-1/data --num-frame 2 --delay 0.5
+python play.py --mode trainspeed --model conv --speedmode 0 --num-frame 2
 #python play.py --mode trainspeed --model conv --path /Users/Yaqi/ee368/kitti/2011_09_26-1/data --num-frame 10 --delay 0.5
 #python play.py --mode trainspeed --model linear --path /Users/Yaqi/ee368/kitti/2011_09_26-1/data --num-frame 10 --delay 0.5
 #python play.py --mode all --path /Users/Yaqi/ee368/kitti/2011_09_26-1/data --num-frame 10 --delay 0.5
