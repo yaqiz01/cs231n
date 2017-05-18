@@ -1,11 +1,12 @@
-pip install --user sklearn --upgrade
-pip install --user scipy --upgrade
-pip install --user numpy --upgrade
-pip install --user matplotlib --upgrade
-pip install --user pyyaml --upgrade
-pip install --user Cython --upgrade
-pip install --user easydict --upgrade
-pip install --user Pillow --upgrade
-pip install --user tensorflow --upgrade
+sudo pip install sklearn --upgrade
+sudo pip install scipy --upgrade
+sudo pip install numpy --upgrade
+sudo pip install matplotlib --upgrade
+sudo pip install pyyaml --upgrade
+sudo pip install Cython --upgrade
+sudo pip install easydict --upgrade
+sudo pip install Pillow --upgrade
+sudo pip install tensorflow-gpu --upgrade
+sudo pip install opencv-contrib-python --upgrade
 cd ../Faster-RCNN_TF/lib
 make

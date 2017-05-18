@@ -171,7 +171,7 @@ class ConvModel(object):
 
         val_losses = []
         valid_examples = [X_val, y_val]
-        prog = Progbar(target=1 + len(X_val) / FLAGS.batch_size)
+        prog = Progbar(target=1 + int(len(X_val) / FLAGS.batch_size))
         for i, batch in enumerate(get_minibatches(valid_examples, FLAGS.batch_size)):
             loss = self.validate(*batch)
             val_losses.append(loss)
