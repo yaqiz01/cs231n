@@ -217,8 +217,8 @@ def main():
     parser.add_argument('--speedmode', dest='speedmode', nargs='?', default=0, type=int,
             help='input mode for speed detection: 0 - flow only, 1 - flow + objmask, 2 - flow + \
             imgchannel, 3 - flow + objmask + imgchannel')
-    parser.add_argument('--gpu', dest='gpu', action='store_true',default=False,
-        help='use gpu to trainspeed')
+    # parser.add_argument('--gpu', dest='gpu', action='store_true',default=False,
+        # help='use gpu to trainspeed')
     (options, args) = parser.parse_known_args()
 
     if (options.path==''):

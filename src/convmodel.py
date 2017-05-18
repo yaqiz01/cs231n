@@ -75,12 +75,12 @@ class ConvModel(object):
                                           a probability distribution over context
         """
 
-        gpu = self.options['gpu']
-        if gpu:
-            with tf.device('\gpu:0'):
-                self.pred = self.setup_network(self.X_placeholder, self.y_placeholder, self.is_training)
-        else:
-            self.pred = self.setup_network(self.X_placeholder, self.y_placeholder, self.is_training)
+        # gpu = self.options['gpu']
+        # if gpu:
+            # with tf.device('\gpu:0'):
+                # self.pred = self.setup_network(self.X_placeholder, self.y_placeholder, self.is_training)
+        # else:
+        self.pred = self.setup_network(self.X_placeholder, self.y_placeholder, self.is_training)
 
     def setup_loss(self):
         """
