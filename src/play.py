@@ -29,7 +29,7 @@ def play(speedXs, labels, **options):
     mode = options['mode']
     speedmode = options['speedmode']
     objmask = options['objmask']
-    imgmask = options['imgmask']
+    imgchannel = options['imgchannel']
 
     files = [f for f in listdir(options['path']) if isfile(join(options['path'], f)) and f.endswith('.png')]
     files = sorted(files)
@@ -83,7 +83,7 @@ def play(speedXs, labels, **options):
                     scores, boxes = getObj(im, **options)
                     objchannel = getObjChannel(im, scores, boxes, **options)
                     speedX = np.concatenate((speedX,objchannel), axis=-1)
-                if imgmask:
+                if imgchannel:
                     speedX = np.concatenate((speedX,im), axis=-1)
                 speedXs.append(speedX)
                 # print('speedmode={} speedX.shape={}'.format(speedmode, np.array(speedX).shape))
@@ -215,7 +215,10 @@ def main():
     parser.add_argument('--modelpath', dest='modelpath', help='Model path',
         default='{}/model/VGGnet_fast_rcnn_iter_70000.ckpt'.format(Faster_RCNN_PATH))
     parser.add_argument('--speedmode', dest='speedmode', nargs='?', default=0, type=int,
-            help='Amount of delay between images')
+            help='input mode for speed detection: 0 - flow only, 1 - flow + objmask, 2 - flow + \
+            imgchannel, 3 - flow + objmask + imgchannel')
+    parser.add_argument('--gpu', dest='gpu', action='store_true',default=False,
+        help='use gpu to trainspeed')
     (options, args) = parser.parse_known_args()
 
     if (options.path==''):
@@ -225,16 +228,16 @@ def main():
 
     if (options['speedmode']==0):
         options['objmask'] = False
-        options['imgmask'] = False
+        options['imgchannel'] = False
     if (options['speedmode']==1):
         options['objmask'] = True 
-        options['imgmask'] = False
+        options['imgchannel'] = False
     if (options['speedmode']==2):
         options['objmask'] = False 
-        options['imgmask'] = True 
+        options['imgchannel'] = True 
     if (options['speedmode']==3):
         options['objmask'] = True 
-        options['imgmask'] = True 
+        options['imgchannel'] = True 
 
     if (options['mode']=='trainspeed'):
         trainModel(**options)

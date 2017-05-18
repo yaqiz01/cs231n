@@ -11,33 +11,8 @@ tf.app.flags.DEFINE_integer("batch_size", 8, "Batch size to use during training.
 tf.app.flags.DEFINE_integer("print_every", 100, "How many iterations to do per print.")
 FLAGS = tf.app.flags.FLAGS
 
-def cnn(X, y, is_training):
-    print("\n\n===== START: cnn ======\n\n")
-
-    conv1_out = tf.layers.conv2d(inputs=X, filters=32, kernel_size=[5, 5], activation=tf.nn.relu)
-    bn1_out = tf.layers.batch_normalization(conv1_out, training=is_training)
-    pool1_out = tf.layers.max_pooling2d(inputs=bn1_out, pool_size=[4, 4], strides=4)
-
-    conv2_out = tf.layers.conv2d(inputs=pool1_out, filters=32, kernel_size=[5, 5], activation=tf.nn.relu)
-    bn2_out = tf.layers.batch_normalization(conv2_out, training=is_training)
-    pool2_out = tf.layers.max_pooling2d(inputs=bn2_out, pool_size=[4, 4], strides=4)
-
-    flat_dim = np.product(pool2_out.shape[1:]).value
-    pool2_out_flat = tf.reshape(pool2_out,[-1,flat_dim])
-    affine1_out = tf.layers.dense(inputs=pool2_out_flat, units=1024, activation=tf.nn.relu)
-    bn3_out = tf.layers.batch_normalization(affine1_out, training=is_training)
-    dropout1_out = tf.layers.dropout(inputs=bn3_out, rate=0.4, training=is_training)
-
-    affine2_out = tf.layers.dense(inputs=dropout1_out, units=512, activation=tf.nn.relu)
-    bn4_out = tf.layers.batch_normalization(affine2_out, training=is_training)
-    dropout2_out = tf.layers.dropout(inputs=bn4_out, rate=0.4, training=is_training)
-
-    out_dim = np.product(y.shape[1:]).value
-    affine3_out = tf.layers.dense(inputs=dropout2_out, units=out_dim, activation=tf.nn.relu)
-    return affine3_out
-
-class Conv_Model(object):
-    def __init__(self):
+class ConvModel(object):
+    def __init__(self, options):
         """
         Initializes your System
 
@@ -51,6 +26,11 @@ class Conv_Model(object):
         self.lr = 1e-3
         # lr = tf.train.exponential_decay(FLAGS.learning_rate, global_step, FLAGS.decay_step, FLAGS.decay_rate,
         #                                 staircase=True)
+        self.session = tf.Session()
+        self.options = options
+
+    def close(self):
+        self.session.close()
 
     def setup_placeholders(self, X_train):
         tp = tf.float32
@@ -58,6 +38,31 @@ class Conv_Model(object):
         self.X_placeholder = tf.placeholder(tp, [None, H, W, C])
         self.y_placeholder = tf.placeholder(tp, [None,1])
         self.is_training = tf.placeholder(tf.bool)
+
+    def setup_network(self, X, y, is_training):
+        print("\n\n===== Setup Network ======\n\n")
+    
+        conv1_out = tf.layers.conv2d(inputs=X, filters=32, kernel_size=[5, 5], activation=tf.nn.relu)
+        bn1_out = tf.layers.batch_normalization(conv1_out, training=is_training)
+        pool1_out = tf.layers.max_pooling2d(inputs=bn1_out, pool_size=[4, 4], strides=4)
+    
+        conv2_out = tf.layers.conv2d(inputs=pool1_out, filters=32, kernel_size=[5, 5], activation=tf.nn.relu)
+        bn2_out = tf.layers.batch_normalization(conv2_out, training=is_training)
+        pool2_out = tf.layers.max_pooling2d(inputs=bn2_out, pool_size=[4, 4], strides=4)
+    
+        flat_dim = np.product(pool2_out.shape[1:]).value
+        pool2_out_flat = tf.reshape(pool2_out,[-1,flat_dim])
+        affine1_out = tf.layers.dense(inputs=pool2_out_flat, units=1024, activation=tf.nn.relu)
+        bn3_out = tf.layers.batch_normalization(affine1_out, training=is_training)
+        dropout1_out = tf.layers.dropout(inputs=bn3_out, rate=0.4, training=is_training)
+    
+        affine2_out = tf.layers.dense(inputs=dropout1_out, units=512, activation=tf.nn.relu)
+        bn4_out = tf.layers.batch_normalization(affine2_out, training=is_training)
+        dropout2_out = tf.layers.dropout(inputs=bn4_out, rate=0.4, training=is_training)
+    
+        out_dim = np.product(y.shape[1:]).value
+        affine3_out = tf.layers.dense(inputs=dropout2_out, units=out_dim, activation=tf.nn.relu)
+        return affine3_out
 
     def setup_system(self):
         """
@@ -70,7 +75,12 @@ class Conv_Model(object):
                                           a probability distribution over context
         """
 
-        self.pred = cnn(self.X_placeholder, self.y_placeholder, self.is_training)
+        gpu = self.options['gpu']
+        if gpu:
+            with tf.device('\gpu:0'):
+                self.pred = self.setup_network(self.X_placeholder, self.y_placeholder, self.is_training)
+        else:
+            self.pred = self.setup_network(self.X_placeholder, self.y_placeholder, self.is_training)
 
     def setup_loss(self):
         """
@@ -93,7 +103,7 @@ class Conv_Model(object):
 
         return feed_dict
 
-    def optimize(self, session, X_train, y_train):
+    def optimize(self, X_train, y_train):
         """
         Takes in actual data to optimize your model
         This method is equivalent to a step() function
@@ -105,11 +115,11 @@ class Conv_Model(object):
 
         output_feed = [self.train_step, self.loss]
 
-        _, loss = session.run(output_feed, feed_dict=input_feed)
+        _, loss = self.session.run(output_feed, feed_dict=input_feed)
 
         return loss
 
-    def test(self, session, qns, mask_qns, cons, mask_cons, labels):
+    def test(self, qns, mask_qns, cons, mask_cons, labels):
         """
         in here you should compute a cost for your validation set
         and tune your hyperparameters according to the validation set performance
@@ -120,7 +130,7 @@ class Conv_Model(object):
 
         # TODO
 
-    def validate(self, session, X_val, y_val):
+    def validate(self, X_val, y_val):
         """
         Iterate through the validation dataset and determine what
         the validation cost is.
@@ -139,11 +149,11 @@ class Conv_Model(object):
 
         output_feed = self.loss
 
-        loss = session.run(output_feed, feed_dict=input_feed)
+        loss = self.session.run(output_feed, feed_dict=input_feed)
 
         return loss
 
-    def run_epoch(self, session, X_train, y_train, X_val, y_val):
+    def run_epoch(self, X_train, y_train, X_val, y_val):
         """
         Run 1 epoch. Train on training examples, evaluate on validation set.
         """
@@ -151,7 +161,7 @@ class Conv_Model(object):
         train_examples = [X_train, y_train]
         prog = Progbar(target=1 + int(len(X_train) / FLAGS.batch_size))
         for i, batch in enumerate(get_minibatches(train_examples, FLAGS.batch_size)):
-            loss = self.optimize(session, *batch)
+            loss = self.optimize(*batch)
             train_losses.append(loss)
             if (self.global_step % FLAGS.print_every) == 0:
                 logging.info("Iteration {0}: with minibatch training l2_loss = {1:.3g} and mse of {2:.2g}"\
@@ -163,14 +173,14 @@ class Conv_Model(object):
         valid_examples = [X_val, y_val]
         prog = Progbar(target=1 + len(X_val) / FLAGS.batch_size)
         for i, batch in enumerate(get_minibatches(valid_examples, FLAGS.batch_size)):
-            loss = self.validate(session, *batch)
+            loss = self.validate(*batch)
             val_losses.append(loss)
             prog.update(i + 1, [("validation loss", loss)])
         logging.info("")
         total_val_mse = np.sum(val_losses)/X_val.shape[0]
         return total_train_mse, train_losses, total_val_mse, val_losses
 
-    def train(self, session, X_train, X_val, vly_train, vly_val, agy_train, agy_val, **options):
+    def train(self, X_train, X_val, vly_train, vly_val, agy_train, agy_val):
         """
         Implement main training loop
 
@@ -178,7 +188,7 @@ class Conv_Model(object):
         :return:
         """
 
-        plot_losses = options['plot_losses']
+        plot_losses = self.options['plot_losses']
 
         self.setup_placeholders(X_train)
         self.setup_system()
@@ -187,7 +197,7 @@ class Conv_Model(object):
 
         # print number of parameters
         params = tf.trainable_variables()
-        num_params = sum(map(lambda t: np.prod(tf.shape(t.value()).eval()), params))
+        num_params = sum(map(lambda t: np.prod(tf.shape(t.value()).eval(session=self.session)), params))
         logging.info("Number of params: %d" % num_params)
 
         # batch normalization in tensorflow requires this extra dependency
@@ -198,13 +208,14 @@ class Conv_Model(object):
             grad_and_vars = optimizer.compute_gradients(self.loss)
             self.train_step = optimizer.apply_gradients(grad_and_vars, global_step=self.global_step)
 
-        session.run(tf.global_variables_initializer())
+        self.session.run(tf.global_variables_initializer())
         y_train = np.reshape(vly_train, (-1, 1))
         y_val = np.reshape(vly_val, (-1, 1))
         # training
         for epoch in range(FLAGS.epochs):
             logging.info("Epoch %d out of %d", epoch, FLAGS.epochs)
-            total_train_mse, train_losses, total_val_mse, val_losses = self.run_epoch(session, X_train, y_train, X_val, y_val)
+            total_train_mse, train_losses, total_val_mse, val_losses = \
+                self.run_epoch(X_train, y_train, X_val, y_val)
             logging.info("Epoch {2}, Overall train mse = {0:.3g}, Overall val mse = {1:.3g}\n"\
                   .format(total_train_mse, total_val_mse, epoch))
             if plot_losses:
