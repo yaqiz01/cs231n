@@ -86,7 +86,8 @@ def play(speedXs, labels, **options):
                 if imgchannel:
                     speedX = np.concatenate((speedX,im), axis=-1)
                 speedXs.append(speedX)
-                # print('speedmode={} speedX.shape={}'.format(speedmode, np.array(speedX).shape))
+                print('speedXs.shape={}'.format(np.array(speedXs).shape))
+		print('speedmode={} speedX.shape={}'.format(speedmode, np.array(speedX).shape))
                 loadLabels(fn, headers, labels, '{0}/../oxts'.format(options['path']))
                 return speedXs, labels
         elif mode == 'test':
@@ -179,10 +180,12 @@ def trainModel(**options):
     for vdir in dirs:
         # speedXs.append([])
         # labels.append(dict(vf=[], wu=[]))
+        print('before play:  speedXs.shape={}'.format(np.array(speedXs).shape))
         options['path'] = '{0}/data/'.format(vdir)
         speedX, label = play([], dict(vf=[], wu=[]), **options)
         speedXs.append(speedX)
         labels.append(label)
+        print('speedXs.shape={}'.format(np.array(speedXs).shape))
     return trainSpeed(speedXs, labels, **options)
 
 def main():
