@@ -16,6 +16,29 @@ from convolution import *
 from convmodel import *
 from linearmodel import *
 
+def lookup(speedmode):
+    if (speedmode==0):
+        includeflow = True
+        includeobj = False
+        includeimg = False
+    elif (speedmode ==1):
+        includeflow = True
+        includeobj = True 
+        includeimg = False
+    elif (speedmode==2):
+        includeflow = True
+        includeobj = False 
+        includeimg = True 
+    elif (speedmode==3):
+        includeflow = True
+        includeobj = True 
+        includeimg = True 
+    elif (speedmode==4):
+        includeflow = False
+        includeobj = False 
+        includeimg = True 
+    return includeflow, includeobj, includeimg
+
 def drawflow(img, flow, step=16):
     h, w = img.shape[:2]
     y, x = np.mgrid[step/2:h:step, step/2:w:step].reshape(2,-1).astype(int)
@@ -126,12 +149,13 @@ def polarflow(prev, cur, **options):
 
 def predSpeed(im, prev, cur, labels, **options):
     model = options['model']
-    objmask = options['objmask']
+    speedmode = options['speedmode']
     if prev is None:
         return im, None, None, None, None
     flow = polarflow(prev, cur, **options)
-    if objmask:
-        pass
+    includeflow, includeobj, includeimg = lookup(speedmode)
+    if includeobj:
+        pass #TODO
     else:
         X_test = flow
 
@@ -153,7 +177,6 @@ def trainSpeed(speedXs, labels, **options):
     """
     pctTrain = 0.8
     model = options['model']
-    objmask = options['objmask']
     print('Start training speed ...')
 
     numTest = int(round(len(speedXs)*(1-pctTrain)))

@@ -28,8 +28,8 @@ def play(speedXs, labels, **options):
     model = options['model']
     mode = options['mode']
     speedmode = options['speedmode']
-    objmask = options['objmask']
-    imgchannel = options['imgchannel']
+    includeflow, includeobj, includeimg = lookup(speedmode)
+
     path = options['path']
 
     print('Playing video {}'.format(path))
@@ -76,16 +76,19 @@ def play(speedXs, labels, **options):
             icmp = icmp[:,:,0].squeeze() # plot 1 interested channel
         elif mode == 'trainspeed':
             if porg is not None:
-                if model=='linear':
-                    flow = polarflow(porg, org, **options)
-                elif model=='conv':
-                    flow = getflow(porg, org, **options)
-                speedX = flow
-                if objmask:
+                H,W,_ = im.shape
+                speedX = np.zeros((H,W,0))
+                if includeflow:
+                    if model=='linear':
+                        flow = polarflow(porg, org, **options)
+                    elif model=='conv':
+                        flow = getflow(porg, org, **options)
+                    speedX = np.concatenate((speedX,flow), axis=-1)
+                if includeobj:
                     scores, boxes = getObj(im, **options)
                     objchannel = getObjChannel(im, scores, boxes, **options)
                     speedX = np.concatenate((speedX,objchannel), axis=-1)
-                if imgchannel:
+                if includeimg:
                     speedX = np.concatenate((speedX,im), axis=-1)
                 speedXs.append(speedX)
                 # print('speedmode={} speedX.shape={}'.format(speedmode, np.array(speedX).shape))
@@ -218,7 +221,7 @@ def main():
         default='{}model/VGGnet_fast_rcnn_iter_70000.ckpt'.format(Faster_RCNN_PATH))
     parser.add_argument('--speedmode', dest='speedmode', nargs='?', default=0, type=int,
             help='input mode for speed detection: 0 - flow only, 1 - flow + objmask, 2 - flow + \
-            imgchannel, 3 - flow + objmask + imgchannel')
+            img, 3 - flow + objmask + img, 4 - img only')
     parser.add_argument('--cpu', dest='cpu', action='store_true',default=False,
         help='use 1 cpu to trainspeed')
     (options, args) = parser.parse_known_args()
@@ -227,19 +230,6 @@ def main():
         options.path = '{0}2011_09_26-{1}/data'.format(KITTI_PATH, options.demo)
 
     options = vars(options)
-
-    if (options['speedmode']==0):
-        options['objmask'] = False
-        options['imgchannel'] = False
-    if (options['speedmode']==1):
-        options['objmask'] = True 
-        options['imgchannel'] = False
-    if (options['speedmode']==2):
-        options['objmask'] = False 
-        options['imgchannel'] = True 
-    if (options['speedmode']==3):
-        options['objmask'] = True 
-        options['imgchannel'] = True 
 
     if (options['mode']=='trainspeed'):
         trainModel(**options)
