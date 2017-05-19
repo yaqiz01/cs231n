@@ -2,6 +2,8 @@ from __future__ import division
 from __future__ import print_function
 
 import logging
+import os
+from datetime import datetime
 import tensorflow as tf
 import numpy as np
 from util import get_minibatches, Progbar
@@ -9,6 +11,7 @@ from util import get_minibatches, Progbar
 tf.app.flags.DEFINE_integer("epochs", 10, "Number of epochs to train.")
 tf.app.flags.DEFINE_integer("batch_size", 8, "Batch size to use during training.")
 tf.app.flags.DEFINE_integer("print_every", 100, "How many iterations to do per print.")
+tf.app.flags.DEFINE_string("train_dir", "../scratch", "Training directory to save the model parameters (default: ../scratch).")
 FLAGS = tf.app.flags.FLAGS
 
 class ConvModel(object):
@@ -41,25 +44,25 @@ class ConvModel(object):
 
     def setup_network(self, X, y, is_training):
         print("\n\n===== Setup Network ======\n\n")
-    
+
         conv1_out = tf.layers.conv2d(inputs=X, filters=32, kernel_size=[5, 5], activation=tf.nn.relu)
         bn1_out = tf.layers.batch_normalization(conv1_out, training=is_training)
         pool1_out = tf.layers.max_pooling2d(inputs=bn1_out, pool_size=[4, 4], strides=4)
-    
+
         conv2_out = tf.layers.conv2d(inputs=pool1_out, filters=32, kernel_size=[5, 5], activation=tf.nn.relu)
         bn2_out = tf.layers.batch_normalization(conv2_out, training=is_training)
         pool2_out = tf.layers.max_pooling2d(inputs=bn2_out, pool_size=[4, 4], strides=4)
-    
+
         flat_dim = np.product(pool2_out.shape[1:]).value
         pool2_out_flat = tf.reshape(pool2_out,[-1,flat_dim])
         affine1_out = tf.layers.dense(inputs=pool2_out_flat, units=1024, activation=tf.nn.relu)
         bn3_out = tf.layers.batch_normalization(affine1_out, training=is_training)
         dropout1_out = tf.layers.dropout(inputs=bn3_out, rate=0.4, training=is_training)
-    
+
         affine2_out = tf.layers.dense(inputs=dropout1_out, units=512, activation=tf.nn.relu)
         bn4_out = tf.layers.batch_normalization(affine2_out, training=is_training)
         dropout2_out = tf.layers.dropout(inputs=bn4_out, rate=0.4, training=is_training)
-    
+
         out_dim = np.product(y.shape[1:]).value
         affine3_out = tf.layers.dense(inputs=dropout2_out, units=out_dim, activation=tf.nn.relu)
         return affine3_out
@@ -75,12 +78,12 @@ class ConvModel(object):
                                           a probability distribution over context
         """
 
-        # gpu = self.options['gpu']
-        # if gpu:
-            # with tf.device('\gpu:0'):
-                # self.pred = self.setup_network(self.X_placeholder, self.y_placeholder, self.is_training)
-        # else:
-        self.pred = self.setup_network(self.X_placeholder, self.y_placeholder, self.is_training)
+        cpu = self.options['cpu']
+        if cpu:
+            with tf.device('\cpu:0'):
+                self.pred = self.setup_network(self.X_placeholder, self.y_placeholder, self.is_training)
+        else:
+            self.pred = self.setup_network(self.X_placeholder, self.y_placeholder, self.is_training)
 
     def setup_loss(self):
         """
@@ -171,7 +174,7 @@ class ConvModel(object):
 
         val_losses = []
         valid_examples = [X_val, y_val]
-        prog = Progbar(target=1 + len(X_val) / FLAGS.batch_size)
+        prog = Progbar(target=1 + int(len(X_val) / FLAGS.batch_size))
         for i, batch in enumerate(get_minibatches(valid_examples, FLAGS.batch_size)):
             loss = self.validate(*batch)
             val_losses.append(loss)
@@ -193,7 +196,7 @@ class ConvModel(object):
         self.setup_placeholders(X_train)
         self.setup_system()
         self.setup_loss()
-        #self.saver = tf.train.Saver(max_to_keep=50)
+        self.saver = tf.train.Saver(max_to_keep=50)
 
         # print number of parameters
         params = tf.trainable_variables()
@@ -226,10 +229,10 @@ class ConvModel(object):
                 plt.xlabel('minibatch number')
                 plt.ylabel('minibatch loss')
                 plt.show()
+        # save model weights
+        model_path = FLAGS.train_dir + "/convmodel_{:%Y%m%d_%H%M%S}_speedmode_{}/".format(datetime.now(), self.options['speedmode'])
+        if not os.path.exists(model_path):
+            os.makedirs(model_path)
+        logging.info("Saving model parameters...")
+        self.saver.save(self.session, model_path + "model.weights")
         return (total_val_mse, 0, 0, 0)
-            # # save model weights
-            # model_path = FLAGS.train_dir + "/{:%Y%m%d_%H%M%S}".format(datetime.now()) + "_F1_" + str(total_f1) + "_EM_" + str(total_em) + "/"
-            # if not os.path.exists(model_path):
-            #     os.makedirs(model_path)
-            # logging.info("Saving model parameters...")
-            # self.saver.save(session, model_path + "model.weights")

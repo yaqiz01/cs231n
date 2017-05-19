@@ -30,14 +30,16 @@ def play(speedXs, labels, **options):
     speedmode = options['speedmode']
     objmask = options['objmask']
     imgchannel = options['imgchannel']
+    path = options['path']
 
-    files = [f for f in listdir(options['path']) if isfile(join(options['path'], f)) and f.endswith('.png')]
+    print('Playing video {}'.format(path))
+    files = [f for f in listdir(path) if isfile(join(path, f)) and f.endswith('.png')]
     files = sorted(files)
 
     if mode in ['loadmatch', 'all']:
-        matches = mcread(options['path'])
+        matches = mcread(path)
     if mode in ['trainspeed', 'all']:
-        headers = loadHeader('{0}/../oxts'.format(options['path']))
+        headers = loadHeader('{0}/../oxts'.format(path))
 
     img = None
     icmp = None
@@ -54,7 +56,7 @@ def play(speedXs, labels, **options):
             break
 
         root, ext = splitext(impath)
-        im = cv2.imread(join(options['path'], impath), cv2.IMREAD_COLOR)
+        im = cv2.imread(join(path, impath), cv2.IMREAD_COLOR)
         org = im.copy()
 
         options['fn'] = fn
@@ -87,7 +89,7 @@ def play(speedXs, labels, **options):
                     speedX = np.concatenate((speedX,im), axis=-1)
                 speedXs.append(speedX)
                 # print('speedmode={} speedX.shape={}'.format(speedmode, np.array(speedX).shape))
-                loadLabels(fn, headers, labels, '{0}/../oxts'.format(options['path']))
+                loadLabels(fn, headers, labels, '{0}/../oxts'.format(path))
         elif mode == 'test':
             sp = 30
             sr = 30
@@ -136,7 +138,7 @@ def play(speedXs, labels, **options):
                 elif iscv3():
                     icmp = cv2.putText(img=icmp, text=text, org=coord, fontFace=fontface, fontScale=0.6,
                         color=bgr('k'), thickness=2, lineType=8);
-            loadLabels(fn, headers, labels, '{0}/../oxts'.format(options['path']))
+            loadLabels(fn, headers, labels, '{0}/../oxts'.format(path))
         porg = org.copy()
 
         if mode in ['trainspeed']:
@@ -213,12 +215,12 @@ def main():
     parser.add_argument('--net', dest='net', help='Network to use [vgg16]',
         default='VGGnet_test')
     parser.add_argument('--modelpath', dest='modelpath', help='Model path',
-        default='{}/model/VGGnet_fast_rcnn_iter_70000.ckpt'.format(Faster_RCNN_PATH))
+        default='{}model/VGGnet_fast_rcnn_iter_70000.ckpt'.format(Faster_RCNN_PATH))
     parser.add_argument('--speedmode', dest='speedmode', nargs='?', default=0, type=int,
             help='input mode for speed detection: 0 - flow only, 1 - flow + objmask, 2 - flow + \
             imgchannel, 3 - flow + objmask + imgchannel')
-    # parser.add_argument('--gpu', dest='gpu', action='store_true',default=False,
-        # help='use gpu to trainspeed')
+    parser.add_argument('--cpu', dest='cpu', action='store_true',default=False,
+        help='use 1 cpu to trainspeed')
     (options, args) = parser.parse_known_args()
 
     if (options.path==''):
