@@ -188,7 +188,11 @@ def trainSpeed(speedXs, labels, **options):
     agy_train = []
     agy_test = []
     for speedX,lb in zip(speedXs, labels):
-        mask = np.random.randint(10, size=len(speedX)) < pctTrain*10
+        mask = np.zeros(len(speedX))
+        mask[:len(speedX)*pctTrain] = 1
+        np.random.shuffle(mask)
+        # mask = np.random.randint(10, size=len(speedX)) < pctTrain*10
+        
         speedX = np.array(speedX)
         xtrain = speedX[mask]
         xtest = speedX[~mask]
