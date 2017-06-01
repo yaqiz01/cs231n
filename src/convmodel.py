@@ -40,28 +40,28 @@ def baseline(X, is_training):
 def res_block(X, num_filters, is_training, downsample=False):
     stride = 1
     if downsample:
-        stride = 2
-        num_filters *= 2
-    conv1 = tf.layers.conv2d(X, num_filters, 3, strides=stride, padding='same', activation=tf.nn.relu)
+        stride = 4
+        num_filters *= 4
+    conv1 = tf.layers.conv2d(X, num_filters, 5, strides=stride, padding='same', activation=tf.nn.relu)
     bn1 = tf.layers.batch_normalization(conv1, training=is_training)
-    conv2 = tf.layers.conv2d(bn1, num_filters, 3, padding='same', activation=tf.nn.relu)
+    conv2 = tf.layers.conv2d(bn1, num_filters, 5, padding='same', activation=tf.nn.relu)
     bn2 = tf.layers.batch_normalization(conv2, training=is_training)
     if downsample:
         X = tf.layers.average_pooling2d(X, stride, stride, padding='same')
-        X = tf.pad(X, [[0,0], [0,0], [0,0], [num_filters // 4, num_filters // 4]])
+        X = tf.pad(X, [[0,0], [0,0], [0,0], [num_filters // 8 * 3, num_filters // 8 * 3]])
     return bn2 + X
 
 def res_net(X, is_training):
-    init_out = tf.layers.conv2d(X, 32, 3, activation=tf.nn.relu)
+    init_out = tf.layers.conv2d(X, 16, 5, activation=tf.nn.relu)
     layer_in = tf.layers.batch_normalization(init_out, training=is_training)
     for i in range(2):
-        out = res_block(layer_in, 32, is_training)
+        out = res_block(layer_in, 16, is_training)
         layer_in = out
-    num_filters = [32, 64, 128]
+    num_filters = [16, 64, 256]
     block_in = out
     for num_filter in num_filters:
         layer_1 = res_block(block_in, num_filter, is_training, downsample=True)
-        layer_2 = res_block(layer_1, 2 * num_filter, is_training)
+        layer_2 = res_block(layer_1, 4 * num_filter, is_training)
         block_in = layer_2
     return layer_2
 
