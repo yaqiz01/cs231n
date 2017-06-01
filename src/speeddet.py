@@ -1,19 +1,18 @@
 import argparse
 from os import listdir
-from os.path import isfile, join, splitext
+from os.path import isfile, join, splitext, dirname, basename
 from ntpath import basename
 import numpy as np
 import cv2
 from matplotlib import pyplot as plt
 from util import *
 from path import *
+from objdet import *
 import csv
 from multiprocessing.pool import ThreadPool
 from functools import partial
 from sklearn import datasets, linear_model
 import pickle
-from convolution import *
-from convmodel import *
 from linearmodel import *
 
 def lookup(speedmode):
@@ -131,6 +130,42 @@ def loadLabels(fn, headers, labels, labelpath):
         for key in labels:
             labels[key].append(float(vals[headers[key]]))
 
+def loadData(framePaths, **options):
+    H,W,C = options['inputshape']
+    model = options['model'] 
+    speedXs = []
+    path = dirname(framePaths[0])
+    headers = loadHeader('{0}/../oxts'.format(path))
+    labels = dict(vf=[], wu=[])
+    for framePath in framePaths:
+        path = dirname(framePath)
+        fn, ext = splitext(basename(framePath))
+        speedX = np.zeros((H,W,0))
+        speedmode = options['speedmode']
+        includeflow, includeobj, includeimg = lookup(speedmode)
+        if includeflow:
+            if model=='linear':
+                flow = polarflow(None, None, **options)
+            elif model=='conv':
+                flow = getflow(None, None, **options)
+            speedX = np.concatenate((speedX,flow), axis=-1)
+        if includeobj:
+            scores, boxes = getObj(None, **options)
+            objchannel = getObjChannel(None, scores, boxes, **options)
+            speedX = np.concatenate((speedX,objchannel), axis=-1)
+        if includeimg:
+            im = cv2.imread(join(path, fn, ext), cv2.IMREAD_COLOR)
+            speedX = np.concatenate((speedX,im), axis=-1)
+        if speedX.shape != (H,W,C):
+            raise Exception('data input shape={} not equals to expected shape!{}'.format(
+                (H,W,C), speedX.shape))
+        speedXs.append(speedX)
+        # print('speedmode={} speedX.shape={}'.format(speedmode, np.array(speedX).shape))
+        loadLabels(fn, headers, labels, '{0}/../oxts'.format(path))
+    speedXs = np.reshape(np.array(speedXs), (-1, H,W,C))
+    speedYs = np.reshape(np.array(labels['vf']), (-1, 1))
+    return ([speedXs, speedYs])
+
 def polarflow(prev, cur, **options):
     flow = getflow(prev, cur, **options)
     avgflow = getAvgflow(flow, **options)
@@ -166,7 +201,30 @@ def predSpeed(im, prev, cur, labels, **options):
     gtangle = np.rad2deg(labels['wu'][-1])
     return im, speed, gtspeed, angle, gtangle
 
-def trainSpeed(speedXs, labels, **options):
+def trainSpeed(frameFns, **options):
+    from convmodel import ConvModel
+    pcttrain = options['pcttrain'] 
+    model = options['model']
+    print('Start training speed ...')
+
+    frameFns = np.array(frameFns)
+    N = frameFns.shape[0]
+    numTrain = int(round(N*pcttrain))
+    mask = np.zeros(N, dtype=bool)
+    mask[:numTrain] = True
+    np.random.shuffle(mask)
+    frameTrain = frameFns[mask]
+    frameVal = frameFns[~mask]
+    print("frameTrain.shape={} framVal.shape={}".format(
+        frameTrain.shape, frameVal.shape))
+    if model=='linear':
+        pass
+    elif model=='conv':
+        conv_model = ConvModel(options)
+        conv_model.train(frameTrain, frameVal)
+        conv_model.close()
+
+def trainSpeedOld(speedXs, labels, **options):
     """
     Train a linear regression model for speed detection
 
@@ -175,7 +233,7 @@ def trainSpeed(speedXs, labels, **options):
     :returns: this is a description of what is returned
     :raises keyError: raises an exception
     """
-    pctTrain = 0.8
+    pcttrain = 0.8
     model = options['model']
     print('Start training speed ...')
 

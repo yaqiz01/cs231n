@@ -1,5 +1,5 @@
 from os import listdir
-from os.path import isfile, isdir, join, splitext
+from os.path import isfile, isdir, join, splitext, basename, dirname
 import argparse
 import numpy as np
 import cv2
@@ -24,7 +24,23 @@ def roadSignMatching(frame, org, sn):
     img = match(sign, frame, org, draw=True, drawKeyPoint=False, ratioTestPct=0.7, minMatchCnt=5)
     return img
 
-def play(speedXs, labels, **options):
+def setInputShape(im, **options):
+    H,W,_ = im.shape
+    speedmode = options['speedmode'] 
+    if speedmode==0:
+        C = 2 # flow
+    elif speedmode==1:
+        C = 3 # flow + objmask
+    elif speedmode==2:
+        C = 5 # flow + rgb
+    elif speedmode==3:
+        C = 6 # flow + objmask + rgb
+    elif speedmode==4:
+        C = 3 # rgb
+    options['inputshape'] = (H,W,C) 
+    return options
+
+def play(framePaths, **options):
     model = options['model']
     mode = options['mode']
     speedmode = options['speedmode']
@@ -77,22 +93,22 @@ def play(speedXs, labels, **options):
         elif mode == 'trainspeed':
             if porg is not None:
                 H,W,_ = im.shape
-                speedX = np.zeros((H,W,0))
+                # speedX = np.zeros((H,W,0))
                 if includeflow:
                     if model=='linear':
                         flow = polarflow(porg, org, **options)
                     elif model=='conv':
                         flow = getflow(porg, org, **options)
-                    speedX = np.concatenate((speedX,flow), axis=-1)
+                    # speedX = np.concatenate((speedX,flow), axis=-1)
                 if includeobj:
                     scores, boxes = getObj(im, **options)
                     objchannel = getObjChannel(im, scores, boxes, **options)
-                    speedX = np.concatenate((speedX,objchannel), axis=-1)
-                if includeimg:
-                    speedX = np.concatenate((speedX,im), axis=-1)
-                speedXs.append(speedX)
+                    # speedX = np.concatenate((speedX,objchannel), axis=-1)
+                # if includeimg:
+                    # speedX = np.concatenate((speedX,im), axis=-1)
+                framePaths.append(join(path, impath))
                 # print('speedmode={} speedX.shape={}'.format(speedmode, np.array(speedX).shape))
-                loadLabels(fn, headers, labels, '{0}/../oxts'.format(path))
+                # loadLabels(fn, headers, labels, '{0}/../oxts'.format(path))
         elif mode == 'test':
             sp = 30
             sr = 30
@@ -175,17 +191,17 @@ def play(speedXs, labels, **options):
         plt.pause(options['delay'])
         if imgax is not None:
             imgax.clear()
+    if mode in ['trainspeed']:
+        options = setInputShape(im, **options)
+    return options
 
 def trainModel(**options):
-    speedXs = []
-    labels = []
+    framePaths = []
     dirs = [join(KITTI_PATH, d) for d in listdir(KITTI_PATH) if isdir(join(KITTI_PATH, d))]
     for vdir in dirs:
-        speedXs.append([])
-        labels.append(dict(vf=[], wu=[]))
         options['path'] = '{0}/data/'.format(vdir)
-        play(speedXs[-1], labels[-1], **options)
-    return trainSpeed(speedXs, labels, **options)
+        options = play(framePaths, **options)
+    return trainSpeed(framePaths, **options)
 
 def main():
     usage = "Usage: play [options --path]"
@@ -219,11 +235,15 @@ def main():
         default='VGGnet_test')
     parser.add_argument('--modelpath', dest='modelpath', help='Model path',
         default='{}model/VGGnet_fast_rcnn_iter_70000.ckpt'.format(Faster_RCNN_PATH))
+    parser.add_argument('--convmode', dest='convmode', nargs='?', default=0, type=int,
+            help='cnn network. 0 - baseline, 1 - resnet')
     parser.add_argument('--speedmode', dest='speedmode', nargs='?', default=0, type=int,
             help='input mode for speed detection: 0 - flow only, 1 - flow + objmask, 2 - flow + \
             img, 3 - flow + objmask + img, 4 - img only')
     parser.add_argument('--cpu', dest='cpu', action='store_true',default=False,
         help='use 1 cpu to trainspeed')
+    parser.add_argument('--pcttrain', dest='pcttrain', nargs='?', default=0.8, type=float,
+            help='Percentage of frames for training')
     (options, args) = parser.parse_known_args()
 
     if (options.path==''):
@@ -234,7 +254,7 @@ def main():
     if (options['mode']=='trainspeed'):
         trainModel(**options)
     else:
-        play([], dict(vf=[], wu=[]), **options)
+        play([], **options)
 
 if __name__ == "__main__":
     main()
