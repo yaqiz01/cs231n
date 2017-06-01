@@ -16,6 +16,57 @@ tf.app.flags.DEFINE_integer("print_every", 100, "How many iterations to do per p
 tf.app.flags.DEFINE_string("train_dir", "../scratch", "Training directory to save the model parameters (default: ../scratch).")
 FLAGS = tf.app.flags.FLAGS
 
+def leaky_relu(x, alpha=0.01):
+    """Compute the leaky ReLU activation function.
+
+    Inputs:
+    - x: TensorFlow Tensor with arbitrary shape
+    - alpha: leak parameter for leaky ReLU
+
+    Returns:
+    TensorFlow Tensor with the same shape as x
+    """
+    return tf.maximum(alpha * x, x)
+
+def baseline(X, is_training):
+    conv1_out = tf.layers.conv2d(inputs=X, filters=32, kernel_size=[5, 5], activation=tf.nn.relu)
+    bn1_out = tf.layers.batch_normalization(conv1_out, training=is_training)
+    pool1_out = tf.layers.max_pooling2d(inputs=bn1_out, pool_size=[4, 4], strides=4)
+
+    conv2_out = tf.layers.conv2d(inputs=pool1_out, filters=32, kernel_size=[5, 5], activation=tf.nn.relu)
+    bn2_out = tf.layers.batch_normalization(conv2_out, training=is_training)
+    pool2_out = tf.layers.max_pooling2d(inputs=bn2_out, pool_size=[4, 4], strides=4)
+
+    return pool2_out
+
+def res_block(X, num_filters, is_training, downsample=False):
+    stride = 1
+    if downsample:
+        stride = 2
+        num_filters *= 2
+    conv1 = tf.layers.conv2d(X, num_filters, 3, strides=stride, padding='same', activation=tf.nn.relu)
+    bn1 = tf.layers.batch_normalization(conv1, training=is_training)
+    conv2 = tf.layers.conv2d(bn1, num_filters, 3, padding='same', activation=tf.nn.relu)
+    bn2 = tf.layers.batch_normalization(conv2, training=is_training)
+    if downsample:
+        X = tf.layers.average_pooling2d(X, stride, stride, padding='same')
+        X = tf.pad(X, [[0,0], [0,0], [0,0], [num_filters // 4, num_filters // 4]])
+    return bn2 + X
+
+def res_net(X, is_training):
+    init_out = tf.layers.conv2d(X, 32, 3, activation=tf.nn.relu)
+    layer_in = tf.layers.batch_normalization(init_out, training=is_training)
+    for i in range(2):
+        out = res_block(layer_in, 32, is_training)
+        layer_in = out
+    num_filters = [32, 64, 128]
+    block_in = out
+    for num_filter in num_filters:
+        layer_1 = res_block(block_in, num_filter, is_training, downsample=True)
+        layer_2 = res_block(layer_1, 2 * num_filter, is_training)
+        block_in = layer_2
+    return layer_2
+
 class ConvModel(object):
     def __init__(self, options):
         """
@@ -48,17 +99,14 @@ class ConvModel(object):
     def setup_network(self, X, y, is_training):
         print("\n\n===== Setup Network ======\n\n")
 
-        conv1_out = tf.layers.conv2d(inputs=X, filters=32, kernel_size=[5, 5], activation=tf.nn.relu)
-        bn1_out = tf.layers.batch_normalization(conv1_out, training=is_training)
-        pool1_out = tf.layers.max_pooling2d(inputs=bn1_out, pool_size=[4, 4], strides=4)
+        if self.options['convmode'] == 0:
+            conv_out = baseline(X, is_training)
+        elif self.options['convmode'] == 1:
+            conv_out = res_net(X, is_training)
 
-        conv2_out = tf.layers.conv2d(inputs=pool1_out, filters=32, kernel_size=[5, 5], activation=tf.nn.relu)
-        bn2_out = tf.layers.batch_normalization(conv2_out, training=is_training)
-        pool2_out = tf.layers.max_pooling2d(inputs=bn2_out, pool_size=[4, 4], strides=4)
-
-        flat_dim = np.product(pool2_out.shape[1:]).value
-        pool2_out_flat = tf.reshape(pool2_out,[-1,flat_dim])
-        affine1_out = tf.layers.dense(inputs=pool2_out_flat, units=1024, activation=tf.nn.relu)
+        flat_dim = np.product(conv_out.shape[1:]).value
+        conv_out_flat = tf.reshape(conv_out,[-1,flat_dim])
+        affine1_out = tf.layers.dense(inputs=conv_out_flat, units=1024, activation=tf.nn.relu)
         bn3_out = tf.layers.batch_normalization(affine1_out, training=is_training)
         dropout1_out = tf.layers.dropout(inputs=bn3_out, rate=0.4, training=is_training)
 

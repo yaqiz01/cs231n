@@ -235,6 +235,8 @@ def main():
         default='VGGnet_test')
     parser.add_argument('--modelpath', dest='modelpath', help='Model path',
         default='{}model/VGGnet_fast_rcnn_iter_70000.ckpt'.format(Faster_RCNN_PATH))
+    parser.add_argument('--convmode', dest='convmode', nargs='?', default=0, type=int,
+            help='cnn network. 0 - baseline, 1 - resnet')
     parser.add_argument('--speedmode', dest='speedmode', nargs='?', default=0, type=int,
             help='input mode for speed detection: 0 - flow only, 1 - flow + objmask, 2 - flow + \
             img, 3 - flow + objmask + img, 4 - img only')
