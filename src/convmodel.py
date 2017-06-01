@@ -6,7 +6,9 @@ import os
 from datetime import datetime
 import tensorflow as tf
 import numpy as np
+from speeddet import * 
 from util import get_minibatches, Progbar
+from play import * 
 
 tf.app.flags.DEFINE_integer("epochs", 10, "Number of epochs to train.")
 tf.app.flags.DEFINE_integer("batch_size", 8, "Batch size to use during training.")
@@ -35,9 +37,10 @@ class ConvModel(object):
     def close(self):
         self.session.close()
 
-    def setup_placeholders(self, X_train):
+    # def setup_placeholders(self, X_train):
+    def setup_placeholders(self, **options):
         tp = tf.float32
-        _,H,W,C = X_train.shape
+        H,W,C = options['inputshape'] 
         self.X_placeholder = tf.placeholder(tp, [None, H, W, C])
         self.y_placeholder = tf.placeholder(tp, [None,1])
         self.is_training = tf.placeholder(tf.bool)
@@ -156,34 +159,38 @@ class ConvModel(object):
 
         return loss
 
-    def run_epoch(self, X_train, y_train, X_val, y_val):
+    def run_epoch(self, frameTrain, frameVal):
         """
         Run 1 epoch. Train on training examples, evaluate on validation set.
         """
+        options = self.options
+        path = options['path']
         train_losses = []
-        train_examples = [X_train, y_train]
-        prog = Progbar(target=1 + int(len(X_train) / FLAGS.batch_size))
-        for i, batch in enumerate(get_minibatches(train_examples, FLAGS.batch_size)):
+        numTrain = frameTrain.shape[0]
+        prog = Progbar(target=1 + int(numTrain / FLAGS.batch_size))
+        for i, frameBatch in enumerate(get_minibatches(frameTrain, FLAGS.batch_size)):
+            batch = loadData(frameBatch, **options)
             loss = self.optimize(*batch)
             train_losses.append(loss)
             if (self.global_step % FLAGS.print_every) == 0:
                 logging.info("Iteration {0}: with minibatch training l2_loss = {1:.3g} and mse of {2:.2g}"\
                       .format(self.global_step, loss, loss/FLAGS.batch_size))
             prog.update(i + 1, [("train loss", loss)])
-        total_train_mse = np.sum(train_losses)/X_train.shape[0]
+        total_train_mse = np.sum(train_losses)/numTrain   
 
         val_losses = []
-        valid_examples = [X_val, y_val]
-        prog = Progbar(target=1 + int(len(X_val) / FLAGS.batch_size))
-        for i, batch in enumerate(get_minibatches(valid_examples, FLAGS.batch_size)):
+        numVal = frameVal.shape[0]
+        prog = Progbar(target=1 + int(numVal / FLAGS.batch_size))
+        for i, frameBatch in enumerate(get_minibatches(frameVal, FLAGS.batch_size)):
+            batch = loadData(frameBatch, **options)
             loss = self.validate(*batch)
             val_losses.append(loss)
             prog.update(i + 1, [("validation loss", loss)])
         logging.info("")
-        total_val_mse = np.sum(val_losses)/X_val.shape[0]
+        total_val_mse = np.sum(val_losses)/numVal
         return total_train_mse, train_losses, total_val_mse, val_losses
 
-    def train(self, X_train, X_val, vly_train, vly_val, agy_train, agy_val):
+    def train(self, frameTrain, frameVal):
         """
         Implement main training loop
 
@@ -193,7 +200,7 @@ class ConvModel(object):
 
         plot_losses = self.options['plot_losses']
 
-        self.setup_placeholders(X_train)
+        self.setup_placeholders(**self.options)
         self.setup_system()
         self.setup_loss()
         self.saver = tf.train.Saver(max_to_keep=50)
@@ -212,13 +219,13 @@ class ConvModel(object):
             self.train_step = optimizer.apply_gradients(grad_and_vars, global_step=self.global_step)
 
         self.session.run(tf.global_variables_initializer())
-        y_train = np.reshape(vly_train, (-1, 1))
-        y_val = np.reshape(vly_val, (-1, 1))
+        # y_train = np.reshape(vly_train, (-1, 1))
+        # y_val = np.reshape(vly_val, (-1, 1))
         # training
         for epoch in range(FLAGS.epochs):
             logging.info("Epoch %d out of %d", epoch, FLAGS.epochs)
             total_train_mse, train_losses, total_val_mse, val_losses = \
-                self.run_epoch(X_train, y_train, X_val, y_val)
+                self.run_epoch(frameTrain, frameVal)
             logging.info("Epoch {2}, Overall train mse = {0:.3g}, Overall val mse = {1:.3g}\n"\
                   .format(total_train_mse, total_val_mse, epoch))
             if plot_losses:
@@ -235,4 +242,4 @@ class ConvModel(object):
             os.makedirs(model_path)
         logging.info("Saving model parameters...")
         self.saver.save(self.session, model_path + "model.weights")
-        return (total_val_mse, 0, 0, 0)
+        # return (total_val_mse, 0, 0, 0)
