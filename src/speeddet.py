@@ -23,20 +23,20 @@ def lookup(speedmode):
         includeimg = False
     elif (speedmode ==1):
         includeflow = True
-        includeobj = True 
+        includeobj = True
         includeimg = False
     elif (speedmode==2):
         includeflow = True
-        includeobj = False 
-        includeimg = True 
+        includeobj = False
+        includeimg = True
     elif (speedmode==3):
         includeflow = True
-        includeobj = True 
-        includeimg = True 
+        includeobj = True
+        includeimg = True
     elif (speedmode==4):
         includeflow = False
-        includeobj = False 
-        includeimg = True 
+        includeobj = False
+        includeimg = True
     return includeflow, includeobj, includeimg
 
 def drawflow(img, flow, step=16):
@@ -179,7 +179,7 @@ def trainSpeed(speedXs, labels, **options):
     model = options['model']
     print('Start training speed ...')
 
-    numTest = int(round(len(speedXs)*(1-pctTrain)))
+    numTrain = int(round(len(speedXs)*(pctTrain)))
     # Split the data into training/testing sets
     X_train = []
     X_test = []
@@ -188,11 +188,11 @@ def trainSpeed(speedXs, labels, **options):
     agy_train = []
     agy_test = []
     for speedX,lb in zip(speedXs, labels):
-        mask = np.zeros(len(speedX))
-        mask[:len(speedX)*pctTrain] = 1
+        mask = np.zeros(len(speedX), dtype=bool)
+        mask[:numTrain] = True
         np.random.shuffle(mask)
         # mask = np.random.randint(10, size=len(speedX)) < pctTrain*10
-        
+
         speedX = np.array(speedX)
         xtrain = speedX[mask]
         xtest = speedX[~mask]
@@ -221,7 +221,7 @@ def trainSpeed(speedXs, labels, **options):
                 **options)
     elif model=='conv':
         conv_model = ConvModel(options)
-        vlmse, vlvar, agmse, agvar = conv_model.train(X_train, X_test, 
+        vlmse, vlvar, agmse, agvar = conv_model.train(X_train, X_test,
                 vly_train,vly_test, agy_train, agy_test)
         conv_model.close()
         # clear old variables
