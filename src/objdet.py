@@ -104,6 +104,7 @@ def getObj(im, **options):
     bbox_path = '{0}{1}.bbox'.format(SCRATCH_PATH,
       '{0}/{1}'.format(path,fn).replace('/','_').replace('..',''))
     if isfile(bbox_path):
+        if options['checkcache']: return
         # print('load {}'.format(bbox_path))
         obj = pickle.load(open(bbox_path, "rb" ))
         scores = obj['scores']
@@ -150,14 +151,16 @@ def objToChannel(im, scores, boxes, **options):
             channel[xmin:xmax, ymin:ymax, INTERESTED_CLASSES.index(cls)] = 1
     return channel
 
-def getObjChannel(im, scores, boxes, **options):
+def getObjChannel(im, **options):
     path = options['path']
     fn = options['fn']
     obj_path = '{0}{1}.obj'.format(SCRATCH_PATH,
       '{0}/{1}'.format(path,fn).replace('/','_').replace('..',''))
     if isfile(obj_path):
+        if options['checkcache']: return
         channel = pickle.load(open(obj_path, "rb" ))
     else:
+        scores, boxes = getObj(im, **options)
         channel = objToChannel(im, scores, boxes, **options)
         pickle.dump(channel , open(obj_path, "wb"))
     return channel

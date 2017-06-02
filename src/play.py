@@ -88,7 +88,7 @@ def play(framePaths, **options):
                 im = detflow(im, porg, org, **options)
         elif mode == 'objdet':
             scores, boxes = getObj(im, **options)
-            icmp = getObjChannel(im, scores, boxes, **options)
+            icmp = getObjChannel(im, **options)
             icmp = icmp[:,:,0].squeeze() # plot 1 interested channel
         elif mode == 'trainspeed':
             if porg is not None:
@@ -96,13 +96,12 @@ def play(framePaths, **options):
                 # speedX = np.zeros((H,W,0))
                 if includeflow:
                     if model=='linear':
-                        flow = polarflow(porg, org, **options)
+                        polarflow(porg, org, checkcache=True, **options)
                     elif model=='conv':
-                        flow = getflow(porg, org, **options)
+                        getflow(porg, org, checkcache=True, **options)
                     # speedX = np.concatenate((speedX,flow), axis=-1)
                 if includeobj:
-                    scores, boxes = getObj(im, **options)
-                    objchannel = getObjChannel(im, scores, boxes, **options)
+                    getObjChannel(im, checkcache=True, **options)
                     # speedX = np.concatenate((speedX,objchannel), axis=-1)
                 # if includeimg:
                     # speedX = np.concatenate((speedX,im), axis=-1)

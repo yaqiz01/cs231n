@@ -11,7 +11,7 @@ from util import get_minibatches, Progbar
 from play import *
 
 tf.app.flags.DEFINE_integer("epochs", 10, "Number of epochs to train.")
-tf.app.flags.DEFINE_integer("batch_size", 8, "Batch size to use during training.")
+tf.app.flags.DEFINE_integer("batch_size", 16, "Batch size to use during training.")
 tf.app.flags.DEFINE_integer("print_every", 100, "How many iterations to do per print.")
 tf.app.flags.DEFINE_string("train_dir", "../scratch", "Training directory to save the model parameters (default: ../scratch).")
 FLAGS = tf.app.flags.FLAGS
@@ -115,7 +115,7 @@ class ConvModel(object):
         dropout2_out = tf.layers.dropout(inputs=bn4_out, rate=0.4, training=is_training)
 
         out_dim = np.product(y.shape[1:]).value
-        affine3_out = tf.layers.dense(inputs=dropout2_out, units=out_dim, activation=tf.nn.relu)
+        affine3_out = tf.layers.dense(inputs=dropout2_out, units=out_dim)
         return affine3_out
 
     def setup_system(self):

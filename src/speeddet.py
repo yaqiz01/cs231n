@@ -85,6 +85,7 @@ def getflow(prev, cur, **options):
     if 'flowMap' in options and flow_path in options['flowMap']:
         flow = options['flowMap'][flow_path]
     elif isfile(flow_path):
+        if options['checkcache']: return
         # print('load {}'.format(flow_path))
         flow = pickle.load(open(flow_path, "rb" ))
         if 'flowMap' in options:
@@ -147,6 +148,7 @@ def loadData(framePaths, **options):
         speedX = np.zeros((H,W,0))
         speedmode = options['speedmode']
         includeflow, includeobj, includeimg = lookup(speedmode)
+        options['checkcache'] = False
         if includeflow:
             if model=='linear':
                 flow = polarflow(None, None, **options)
@@ -154,8 +156,7 @@ def loadData(framePaths, **options):
                 flow = getflow(None, None, **options)
             speedX = np.concatenate((speedX,flow), axis=-1)
         if includeobj:
-            scores, boxes = getObj(None, **options)
-            objchannel = getObjChannel(None, scores, boxes, **options)
+            objchannel = getObjChannel(None, **options)
             speedX = np.concatenate((speedX,objchannel), axis=-1)
         if includeimg:
             im = cv2.imread(framePath, cv2.IMREAD_COLOR)
