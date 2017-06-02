@@ -229,6 +229,7 @@ class ConvModel(object):
             prog.update(i + 1, [("train loss", loss)])
         total_train_mse = np.sum(train_losses)/numTrain
 
+        print('')
         val_losses = []
         numVal = frameVal.shape[0]
         prog = Progbar(target=1 + int(numVal / FLAGS.batch_size))
@@ -237,7 +238,7 @@ class ConvModel(object):
             loss = self.validate(*batch)
             val_losses.append(loss)
             prog.update(i + 1, [("validation loss", loss)])
-        logging.info("")
+        print('')
         total_val_mse = np.sum(val_losses)/numVal
         return total_train_mse, train_losses, total_val_mse, val_losses
 
@@ -277,7 +278,7 @@ class ConvModel(object):
             logging.info("Epoch %d out of %d", epoch+1, FLAGS.epochs)
             total_train_mse, train_losses, total_val_mse, val_losses = \
                 self.run_epoch(frameTrain, frameVal)
-            logging.info("Epoch {2}, Overall train mse = {0:.3g}, Overall val mse = {1:.3g}\n"\
+            logging.info("Epoch {2}, Overall train mse = {0:.4g}, Overall val mse = {1:.4g}\n"\
                   .format(total_train_mse, total_val_mse, epoch))
             if plot_losses:
                 plt.plot(train_losses)
