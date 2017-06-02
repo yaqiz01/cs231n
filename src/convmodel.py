@@ -42,28 +42,28 @@ def baseline(X, is_training):
 def res_block(X, num_filters, is_training, downsample=False):
     stride = 1
     if downsample:
-        stride = 4
-        num_filters *= 4
-    conv1 = tf.layers.conv2d(X, num_filters, 5, strides=stride, padding='same', activation=tf.nn.relu)
+        stride = 2
+        num_filters *= 2
+    conv1 = tf.layers.conv2d(X, num_filters, 3, strides=stride, padding='same', activation=tf.nn.relu)
     bn1 = tf.layers.batch_normalization(conv1, training=is_training)
-    conv2 = tf.layers.conv2d(bn1, num_filters, 5, padding='same', activation=tf.nn.relu)
+    conv2 = tf.layers.conv2d(bn1, num_filters, 3, padding='same', activation=tf.nn.relu)
     bn2 = tf.layers.batch_normalization(conv2, training=is_training)
     if downsample:
         X = tf.layers.average_pooling2d(X, stride, stride, padding='same')
-        X = tf.pad(X, [[0,0], [0,0], [0,0], [num_filters // 8 * 3, num_filters // 8 * 3]])
+        X = tf.pad(X, [[0,0], [0,0], [0,0], [num_filters // 4, num_filters // 4]])
     return bn2 + X
 
 def res_net(X, is_training):
-    init_out = tf.layers.conv2d(X, 16, 5, activation=tf.nn.relu)
+    init_out = tf.layers.conv2d(X, 64, 7, strides=2, activation=tf.nn.relu)
     layer_in = tf.layers.batch_normalization(init_out, training=is_training)
     for i in range(2):
-        out = res_block(layer_in, 16, is_training)
+        out = res_block(layer_in, 64, is_training)
         layer_in = out
-    num_filters = [16, 64, 256]
+    num_filters = [64, 128, 256]
     block_in = out
     for num_filter in num_filters:
         layer_1 = res_block(block_in, num_filter, is_training, downsample=True)
-        layer_2 = res_block(layer_1, 4 * num_filter, is_training)
+        layer_2 = res_block(layer_1, 2 * num_filter, is_training)
         block_in = layer_2
     return layer_2
 
@@ -100,22 +100,25 @@ class ConvModel(object):
         print("\n\n===== Setup Network ======\n\n")
 
         if self.options['convmode'] == 0:
-            conv_out = baseline(X, is_training)
+            baseline_out = baseline(X, is_training)
+            flat_dim = np.product(baseline_out.shape[1:]).value
+            baseline_out_flat = tf.reshape(baseline_out, [-1, flat_dim])
+
+            affine1_out = tf.layers.dense(inputs=baseline_out_flat, units=1024, activation=tf.nn.relu)
+            bn3_out = tf.layers.batch_normalization(affine1_out, training=is_training)
+            dropout1_out = tf.layers.dropout(inputs=bn3_out, rate=0.4, training=is_training)
+
+            affine2_out = tf.layers.dense(inputs=conv_out_flat, units=512, activation=tf.nn.relu)
+            bn4_out = tf.layers.batch_normalization(affine2_out, training=is_training)
+            conv_out = tf.layers.dropout(inputs=bn4_out, rate=0.4, training=is_training)
+
         elif self.options['convmode'] == 1:
-            conv_out = res_net(X, is_training)
-
-        flat_dim = np.product(conv_out.shape[1:]).value
-        conv_out_flat = tf.reshape(conv_out,[-1,flat_dim])
-        affine1_out = tf.layers.dense(inputs=conv_out_flat, units=1024, activation=tf.nn.relu)
-        bn3_out = tf.layers.batch_normalization(affine1_out, training=is_training)
-        dropout1_out = tf.layers.dropout(inputs=bn3_out, rate=0.4, training=is_training)
-
-        affine2_out = tf.layers.dense(inputs=dropout1_out, units=512, activation=tf.nn.relu)
-        bn4_out = tf.layers.batch_normalization(affine2_out, training=is_training)
-        dropout2_out = tf.layers.dropout(inputs=bn4_out, rate=0.4, training=is_training)
+            res_out = res_net(X, is_training)
+            flat_dim = np.product(res_out.shape[1:]).value
+            conv_out = tf.reshape(res_out, [-1, flat_dim])
 
         out_dim = np.product(y.shape[1:]).value
-        affine3_out = tf.layers.dense(inputs=dropout2_out, units=out_dim, activation=tf.nn.relu)
+        affine3_out = tf.layers.dense(inputs=conv_out, units=out_dim)
         return affine3_out
 
     def setup_system(self):
