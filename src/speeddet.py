@@ -85,10 +85,12 @@ def getflow(prev, cur, **options):
     if 'flowMap' in options and flow_path in options['flowMap']:
         flow = options['flowMap'][flow_path]
     elif isfile(flow_path):
+        # print('load {}'.format(flow_path))
         flow = pickle.load(open(flow_path, "rb" ))
         if 'flowMap' in options:
             options['flowMap'][flow_path] = flow
     else:
+        # print('recompute {}'.format(flow_path))
         prevgray = cv2.cvtColor(prev, cv2.COLOR_BGR2GRAY)
         gray = cv2.cvtColor(cur, cv2.COLOR_BGR2GRAY)
         if iscv2():
@@ -138,8 +140,10 @@ def loadData(framePaths, **options):
     headers = loadHeader('{0}/../oxts'.format(path))
     labels = dict(vf=[], wu=[])
     for framePath in framePaths:
-        path = dirname(framePath)
+        path = dirname(framePath) + "/"
         fn, ext = splitext(basename(framePath))
+        options['path'] = path
+        options['fn'] = fn
         speedX = np.zeros((H,W,0))
         speedmode = options['speedmode']
         includeflow, includeobj, includeimg = lookup(speedmode)

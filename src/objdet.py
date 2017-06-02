@@ -104,10 +104,12 @@ def getObj(im, **options):
     bbox_path = '{0}{1}.bbox'.format(SCRATCH_PATH,
       '{0}/{1}'.format(path,fn).replace('/','_').replace('..',''))
     if isfile(bbox_path):
+        # print('load {}'.format(bbox_path))
         obj = pickle.load(open(bbox_path, "rb" ))
         scores = obj['scores']
         boxes = obj['boxes']
     else:
+        # print('recompute {}'.format(bbox_path))
         timer = Timer()
         timer.tic()
         initSession(**options)
