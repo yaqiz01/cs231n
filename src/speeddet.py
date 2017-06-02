@@ -132,7 +132,7 @@ def loadLabels(fn, headers, labels, labelpath):
 
 def loadData(framePaths, **options):
     H,W,C = options['inputshape']
-    model = options['model'] 
+    model = options['model']
     speedXs = []
     path = dirname(framePaths[0])
     headers = loadHeader('{0}/../oxts'.format(path))
@@ -154,7 +154,7 @@ def loadData(framePaths, **options):
             objchannel = getObjChannel(None, scores, boxes, **options)
             speedX = np.concatenate((speedX,objchannel), axis=-1)
         if includeimg:
-            im = cv2.imread(join(path, fn, ext), cv2.IMREAD_COLOR)
+            im = cv2.imread(framePath, cv2.IMREAD_COLOR)
             speedX = np.concatenate((speedX,im), axis=-1)
         if speedX.shape != (H,W,C):
             raise Exception('data input shape={} not equals to expected shape!{}'.format(
@@ -203,7 +203,7 @@ def predSpeed(im, prev, cur, labels, **options):
 
 def trainSpeed(frameFns, **options):
     from convmodel import ConvModel
-    pcttrain = options['pcttrain'] 
+    pcttrain = options['pcttrain']
     model = options['model']
     print('Start training speed ...')
 

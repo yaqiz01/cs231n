@@ -6,9 +6,9 @@ import os
 from datetime import datetime
 import tensorflow as tf
 import numpy as np
-from speeddet import * 
+from speeddet import *
 from util import get_minibatches, Progbar
-from play import * 
+from play import *
 
 tf.app.flags.DEFINE_integer("epochs", 10, "Number of epochs to train.")
 tf.app.flags.DEFINE_integer("batch_size", 8, "Batch size to use during training.")
@@ -91,7 +91,7 @@ class ConvModel(object):
     # def setup_placeholders(self, X_train):
     def setup_placeholders(self, **options):
         tp = tf.float32
-        H,W,C = options['inputshape'] 
+        H,W,C = options['inputshape']
         self.X_placeholder = tf.placeholder(tp, [None, H, W, C])
         self.y_placeholder = tf.placeholder(tp, [None,1])
         self.is_training = tf.placeholder(tf.bool)
@@ -224,7 +224,7 @@ class ConvModel(object):
                 logging.info("Iteration {0}: with minibatch training l2_loss = {1:.3g} and mse of {2:.2g}"\
                       .format(self.global_step, loss, loss/FLAGS.batch_size))
             prog.update(i + 1, [("train loss", loss)])
-        total_train_mse = np.sum(train_losses)/numTrain   
+        total_train_mse = np.sum(train_losses)/numTrain
 
         val_losses = []
         numVal = frameVal.shape[0]
@@ -271,7 +271,7 @@ class ConvModel(object):
         # y_val = np.reshape(vly_val, (-1, 1))
         # training
         for epoch in range(FLAGS.epochs):
-            logging.info("Epoch %d out of %d", epoch, FLAGS.epochs)
+            logging.info("Epoch %d out of %d", epoch+1, FLAGS.epochs)
             total_train_mse, train_losses, total_val_mse, val_losses = \
                 self.run_epoch(frameTrain, frameVal)
             logging.info("Epoch {2}, Overall train mse = {0:.3g}, Overall val mse = {1:.3g}\n"\
