@@ -44,6 +44,7 @@ def play(framePaths, **options):
     model = options['model']
     mode = options['mode']
     speedmode = options['speedmode']
+    sample_every = options['sample_every']
     includeflow, includeobj, includeimg = lookup(speedmode)
 
     path = options['path']
@@ -63,6 +64,9 @@ def play(framePaths, **options):
     if (mode not in ['trainspeed']):
       plt.figure(dpi=140)
     for i, impath in enumerate(files):
+        if mode in ['trainspeed']:
+            if (i % sample_every) != 0:
+                continue
         fn, ext = splitext(impath)
         if i<options['startframe']:
             continue
@@ -234,6 +238,8 @@ def main():
         default='VGGnet_test')
     parser.add_argument('--modelpath', dest='modelpath', help='Model path',
         default='{}model/VGGnet_fast_rcnn_iter_70000.ckpt'.format(Faster_RCNN_PATH))
+    parser.add_argument('--sample-every', dest='sample_every', nargs='?', default=1, type=int,
+            help='Sample every <#> of frames')
     parser.add_argument('--convmode', dest='convmode', nargs='?', default=0, type=int,
             help='cnn network. 0 - baseline, 1 - resnet')
     parser.add_argument('--speedmode', dest='speedmode', nargs='?', default=0, type=int,
@@ -251,6 +257,8 @@ def main():
     options = vars(options)
 
     if (options['mode']=='trainspeed'):
+        for k in options:
+            print('Configuration: {}={}'.format(k,options[k]))
         trainModel(**options)
     else:
         play([], **options)

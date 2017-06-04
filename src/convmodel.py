@@ -290,7 +290,7 @@ class ConvModel(object):
                 plt.show()
         # save model weights
         # model_path = FLAGS.train_dir + "/convmodel_{:%Y%m%d_%H%M%S}_speedmode_{}/".format(datetime.now(), self.options['speedmode'])
-        model_path = FLAGS.train_dir + "/convmodel_speedmode_{}/".format(datetime.now(), self.options['speedmode'])
+        model_path = FLAGS.train_dir + "/convmodel_speedmode_{}/".format(self.options['speedmode'])
         if not os.path.exists(model_path):
             os.makedirs(model_path)
         logging.info("Saving model parameters...")
