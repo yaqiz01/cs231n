@@ -10,8 +10,12 @@ from speeddet import *
 from util import get_minibatches, Progbar
 from play import *
 
+tf.app.flags.DEFINE_float("learning_rate", 0.005, "Learning rate.")
+tf.app.flags.DEFINE_float("dropout", 0.4, "Dropout rate.")
 tf.app.flags.DEFINE_integer("epochs", 10, "Number of epochs to train.")
 tf.app.flags.DEFINE_integer("batch_size", 16, "Batch size to use during training.")
+tf.app.flags.DEFINE_integer("decay_step", 100, "Number of steps between decays.")
+tf.app.flags.DEFINE_float("decay_rate", 0.9, "Decay rate.")
 tf.app.flags.DEFINE_integer("print_every", 100, "How many iterations to do per print.")
 tf.app.flags.DEFINE_string("train_dir", "../scratch", "Training directory to save the model parameters (default: ../scratch).")
 FLAGS = tf.app.flags.FLAGS
@@ -67,6 +71,29 @@ def res_net(X, is_training):
         block_in = layer_2
     return layer_2
 
+def alex_net(X, is_training):
+    init = tf.contrib.layers.xavier_initializer()
+    with tf.variable_scope("conv_1"):
+        X = tf.layers.conv2d(X, 64, 11, strides=4, activation=tf.nn.relu, kernel_initializer=init)
+        X = tf.layers.max_pooling2d(X, 3, 2)
+    with tf.variable_scope("conv_2"):
+        X = tf.layers.conv2d(X, 192, 5, activation=tf.nn.relu, kernel_initializer=init)
+        X = tf.layers.max_pooling2d(X, 3, 2)
+    with tf.variable_scope("conv_3"):
+        X = tf.layers.conv2d(X, 384, 3, activation=tf.nn.relu, kernel_initializer=init)
+    with tf.variable_scope("conv_4"):
+        X = tf.layers.conv2d(X, 384, 3, activation=tf.nn.relu, kernel_initializer=init)
+    with tf.variable_scope("conv_5"):
+        X = tf.layers.conv2d(X, 256, 3, activation=tf.nn.relu, kernel_initializer=init)
+        X = tf.layers.max_pooling2d(X, 3, 2)
+    with tf.variable_scope("fc_6"):
+        X = tf.layers.conv2d(X, 4096, 5, activation=tf.nn.relu, kernel_initializer=init)
+        X = tf.layers.dropout(X, rate=FLAGS.dropout, training=is_training)
+    with tf.variable_scope("fc_7"):
+        X = tf.layers.conv2d(X, 4096, 1, activation=tf.nn.relu, kernel_initializer=init)
+        X = tf.layers.dropout(X, rate=FLAGS.dropout, training=is_training)
+    return X
+
 class ConvModel(object):
     def __init__(self, options):
         """
@@ -79,9 +106,6 @@ class ConvModel(object):
 
         # ==== set up training/updating procedure ====
         # implement learning rate annealing
-        self.lr = 1e-3
-        # lr = tf.train.exponential_decay(FLAGS.learning_rate, global_step, FLAGS.decay_step, FLAGS.decay_rate,
-        #                                 staircase=True)
         self.session = tf.Session()
         self.options = options
 
@@ -117,8 +141,13 @@ class ConvModel(object):
             flat_dim = np.product(res_out.shape[1:]).value
             conv_out = tf.reshape(res_out, [-1, flat_dim])
 
+        elif self.options['convmode'] == 2:
+            alex_out = alex_net(X, is_training)
+            flat_dim = np.product(alex_out.shape[1:]).value
+            conv_out = tf.reshape(alex_out, [-1, flat_dim])
+
         out_dim = np.product(y.shape[1:]).value
-        affine3_out = tf.layers.dense(inputs=conv_out, units=out_dim)
+        affine3_out = tf.layers.dense(inputs=conv_out, units=out_dim, kernel_initializer=tf.contrib.layers.xavier_initializer())
         return affine3_out
 
     def setup_system(self):
@@ -170,11 +199,11 @@ class ConvModel(object):
         # construct feed_dict
         input_feed = self.create_feed_dict(X_train, y_train, True)
 
-        output_feed = [self.train_step, self.loss]
+        output_feed = [self.train_step, self.loss, self.lr, self.global_step]
 
-        _, loss = self.session.run(output_feed, feed_dict=input_feed)
+        _, loss, lr, gs = self.session.run(output_feed, feed_dict=input_feed)
 
-        return loss
+        return loss, lr, gs
 
     def test(self, qns, mask_qns, cons, mask_cons, labels):
         """
@@ -221,15 +250,14 @@ class ConvModel(object):
         prog = Progbar(target=1 + int(numTrain / FLAGS.batch_size))
         for i, frameBatch in enumerate(get_minibatches(frameTrain, FLAGS.batch_size)):
             batch = loadData(frameBatch, **options)
-            loss = self.optimize(*batch)
+            loss, lr, gs = self.optimize(*batch)
             train_losses.append(loss)
             if (self.global_step % FLAGS.print_every) == 0:
                 logging.info("Iteration {0}: with minibatch training l2_loss = {1:.3g} and mse of {2:.2g}"\
                       .format(self.global_step, loss, loss/FLAGS.batch_size))
-            prog.update(i + 1, [("train loss", loss)])
+            prog.update(i + 1, [("train loss", loss)], [("learning rate", lr), ("global step", gs)])
         total_train_mse = np.sum(train_losses)/numTrain
 
-        print('')
         val_losses = []
         numVal = frameVal.shape[0]
         prog = Progbar(target=1 + int(numVal / FLAGS.batch_size))
@@ -238,7 +266,6 @@ class ConvModel(object):
             loss = self.validate(*batch)
             val_losses.append(loss)
             prog.update(i + 1, [("validation loss", loss)])
-        print('')
         total_val_mse = np.sum(val_losses)/numVal
         return total_train_mse, train_losses, total_val_mse, val_losses
 
@@ -266,6 +293,8 @@ class ConvModel(object):
         extra_update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
         with tf.control_dependencies(extra_update_ops):
             self.global_step = tf.Variable(0, trainable=False)
+            lr = tf.train.exponential_decay(FLAGS.learning_rate, self.global_step, FLAGS.decay_step, FLAGS.decay_rate, staircase=True)
+            self.lr = lr
             optimizer = tf.train.AdamOptimizer(self.lr)
             grad_and_vars = optimizer.compute_gradients(self.loss)
             self.train_step = optimizer.apply_gradients(grad_and_vars, global_step=self.global_step)
@@ -279,7 +308,7 @@ class ConvModel(object):
             total_train_mse, train_losses, total_val_mse, val_losses = \
                 self.run_epoch(frameTrain, frameVal)
             logging.info("Epoch {2}, Overall train mse = {0:.4g}, Overall val mse = {1:.4g}\n"\
-                  .format(total_train_mse, total_val_mse, epoch))
+                  .format(total_train_mse, total_val_mse, epoch+1))
             if plot_losses:
                 plt.plot(train_losses)
                 plt.plot(val_losses)
@@ -289,8 +318,7 @@ class ConvModel(object):
                 plt.ylabel('minibatch loss')
                 plt.show()
         # save model weights
-        # model_path = FLAGS.train_dir + "/convmodel_{:%Y%m%d_%H%M%S}_speedmode_{}/".format(datetime.now(), self.options['speedmode'])
-        model_path = FLAGS.train_dir + "/convmodel_speedmode_{}/".format(self.options['speedmode'])
+        model_path = FLAGS.train_dir + "/convmodel_speedmode_{}_convmode_{}/".format(self.options['speedmode'], self.options['convmode'])
         if not os.path.exists(model_path):
             os.makedirs(model_path)
         logging.info("Saving model parameters...")
