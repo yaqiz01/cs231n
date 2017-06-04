@@ -10,6 +10,7 @@ from speeddet import *
 from util import get_minibatches, Progbar
 from play import *
 
+tf.app.flags.DEFINE_float("dropout", 0.4, "Dropout rate.")
 tf.app.flags.DEFINE_integer("epochs", 10, "Number of epochs to train.")
 tf.app.flags.DEFINE_integer("batch_size", 16, "Batch size to use during training.")
 tf.app.flags.DEFINE_integer("print_every", 100, "How many iterations to do per print.")
@@ -67,6 +68,29 @@ def res_net(X, is_training):
         block_in = layer_2
     return layer_2
 
+def alex_net(X, is_training):
+    init = tf.contrib.layers.xavier_initializer()
+    with tf.variable_scope("conv_1"):
+        X = tf.layers.conv2d(X, 64, 11, strides=4, activation=tf.nn.relu, kernel_initializer=init)
+        X = tf.layers.max_pooling2d(X, 3, 2)
+    with tf.variable_scope("conv_2"):
+        X = tf.layers.conv2d(X, 192, 5, activation=tf.nn.relu, kernel_initializer=init)
+        X = tf.layers.max_pooling2d(X, 3, 2)
+    with tf.variable_scope("conv_3"):
+        X = tf.layers.conv2d(X, 384, 3, activation=tf.nn.relu, kernel_initializer=init)
+    with tf.variable_scope("conv_4"):
+        X = tf.layers.conv2d(X, 384, 3, activation=tf.nn.relu, kernel_initializer=init)
+    with tf.variable_scope("conv_5"):
+        X = tf.layers.conv2d(X, 256, 3, activation=tf.nn.relu, kernel_initializer=init)
+        X = tf.layers.max_pooling2d(X, 3, 2)
+    with tf.variable_scope("fc_6"):
+        X = tf.layers.conv2d(X, 4096, 5, activation=tf.nn.relu, kernel_initializer=init)
+        X = tf.layers.dropout(X, rate=FLAGS.dropout, training=is_training)
+    with tf.variable_scope("fc_7"):
+        X = tf.layers.conv2d(X, 4096, 1, activation=tf.nn.relu, kernel_initializer=init)
+        X = tf.layers.dropout(X, rate=FLAGS.dropout, training=is_training)
+    return X
+
 class ConvModel(object):
     def __init__(self, options):
         """
@@ -117,8 +141,13 @@ class ConvModel(object):
             flat_dim = np.product(res_out.shape[1:]).value
             conv_out = tf.reshape(res_out, [-1, flat_dim])
 
+        elif self.options['convmode'] == 2:
+            alex_out = alex_net(X, is_training)
+            flat_dim = np.product(alex_out.shape[1:]).value
+            conv_out = tf.reshape(alex_out, [-1, flat_dim])
+
         out_dim = np.product(y.shape[1:]).value
-        affine3_out = tf.layers.dense(inputs=conv_out, units=out_dim)
+        affine3_out = tf.layers.dense(inputs=conv_out, units=out_dim, kernel_initializer=tf.contrib.layers.xavier_initializer())
         return affine3_out
 
     def setup_system(self):
