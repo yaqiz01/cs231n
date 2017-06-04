@@ -1,15 +1,11 @@
 from _init_paths import *
 import tensorflow as tf
-from fast_rcnn.config import cfg
-from fast_rcnn.test import im_detect
-from fast_rcnn.nms_wrapper import nms
 from utils.timer import Timer
 import matplotlib.pyplot as plt
 import numpy as np
 import os, sys, cv2
 from os.path import isfile, isdir, join, splitext
 import argparse
-from networks.factory import get_network
 import pickle
 
 CLASSES = ('__background__',
@@ -99,6 +95,10 @@ def drawObj(ax, scores, boxes, **options):
         draw_detections(cls, dets, ax, thresh=CONF_THRESH)
 
 def getObj(im, **options):
+    from networks.factory import get_network
+    from fast_rcnn.config import cfg
+    from fast_rcnn.test import im_detect
+    from fast_rcnn.nms_wrapper import nms
     path = options['path']
     fn = options['fn']
     bbox_path = '{0}{1}.bbox'.format(SCRATCH_PATH,
@@ -106,7 +106,11 @@ def getObj(im, **options):
     if isfile(bbox_path):
         if options['checkcache']: return
         # print('load {}'.format(bbox_path))
-        obj = pickle.load(open(bbox_path, "rb" ))
+        try:
+          obj = pickle.load(open(bbox_path, "rb" ))
+        except:
+          print('Fail to load {}'.format(flow_path))
+          sys.exit(-1)
         scores = obj['scores']
         boxes = obj['boxes']
     else:

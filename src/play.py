@@ -1,5 +1,6 @@
 from os import listdir
 from os.path import isfile, isdir, join, splitext, basename, dirname
+import sys
 import argparse
 import numpy as np
 import cv2
@@ -199,11 +200,14 @@ def play(framePaths, **options):
     return options
 
 def trainModel(**options):
+    sys.stdout.flush()
     framePaths = []
     dirs = [join(KITTI_PATH, d) for d in listdir(KITTI_PATH) if isdir(join(KITTI_PATH, d))]
     for vdir in dirs:
         options['path'] = '{0}/data/'.format(vdir)
         options = play(framePaths, **options)
+        sys.stdout.flush()
+        print('Configuration: num_frames={}'.format(len(framePaths)))
     return trainSpeed(framePaths, **options)
 
 def main():
@@ -238,10 +242,10 @@ def main():
         default='VGGnet_test')
     parser.add_argument('--modelpath', dest='modelpath', help='Model path',
         default='{}model/VGGnet_fast_rcnn_iter_70000.ckpt'.format(Faster_RCNN_PATH))
-    parser.add_argument('--sample-every', dest='sample_every', nargs='?', default=1, type=int,
+    parser.add_argument('--sample-every', dest='sample_every', nargs='?', default=3, type=int,
             help='Sample every <#> of frames')
     parser.add_argument('--convmode', dest='convmode', nargs='?', default=0, type=int,
-            help='cnn network. 0 - baseline, 1 - resnet')
+            help='cnn network. 0 - baseline, 1 - resnet, 2 - alexnet')
     parser.add_argument('--speedmode', dest='speedmode', nargs='?', default=0, type=int,
             help='input mode for speed detection: 0 - flow only, 1 - flow + objmask, 2 - flow + \
             img, 3 - flow + objmask + img, 4 - img only')

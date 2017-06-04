@@ -87,7 +87,11 @@ def getflow(prev, cur, **options):
     elif isfile(flow_path):
         if options['checkcache']: return
         # print('load {}'.format(flow_path))
-        flow = pickle.load(open(flow_path, "rb" ))
+        try:
+          flow = pickle.load(open(flow_path, "rb" ))
+        except:
+          print('Fail to load {}'.format(flow_path))
+          sys.exit(-1)
         if 'flowMap' in options:
             options['flowMap'][flow_path] = flow
     else:
