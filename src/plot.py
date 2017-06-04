@@ -23,6 +23,7 @@ def parse(**options):
                     key, val = line.split(' ')[1].split('=')
                     results[log][key] = val
                 if 'Error' in line or 'Fail' in line: # broken log
+                    print('broken log {}'.format(log))
                     results.pop(log, None)
                     continue
                 if 'Overall train mse' in line:
@@ -41,10 +42,12 @@ def lookup(d):
     if int(d['convmode'])==0: label += 'baseline-cnn'
     elif int(d['convmode'])==1: label += 'resnet'
     elif int(d['convmode'])==2: label += 'alexnet'
+    label += '_'
+    label += '#{}'.format(d['num_frames'])
 
     return label
 
-def plot_loss(**options):
+def plot_all_loss(**options):
     plt.figure(1, figsize=(8,3))
     ax1 = plt.subplot(1,2,1)
     handles = []
@@ -63,8 +66,23 @@ def plot_loss(**options):
     ax2.grid(True)
     ax2.set_xlabel('epoch')
     ax2.legend(handles=handles)
-    plt.gcf().subplots_adjust(bottom=0.15)
-    plt.savefig('{}/loss.png'.format(options['path']))
+    plt.gcf().subplots_adjust(bottom=0.15, top=0.85)
+    plt.savefig('{}/loss_all.png'.format(options['path']))
+
+def plot_sep_loss(**options):
+    plt.clf()
+    for i, log in enumerate(logs):
+        plt.figure(i+1, figsize=(4,3))
+        handles = []
+        ax1 = plt.subplot()
+        handles += (ax1.plot(results[log]['epoch'], results[log]['train_mse'], label='train_mse'))
+        handles += (ax1.plot(results[log]['epoch'], results[log]['val_mse'], label='val_mse'))
+        ax1.set_title('loss of {}'.format(lookup(results[log])))
+        ax1.grid(True)
+        ax1.set_xlabel('epoch')
+        ax1.legend(handles=handles)
+        plt.gcf().subplots_adjust(bottom=0.15, top=0.75)
+        plt.savefig('{}/loss_{}.png'.format(options['path'], log.replace('result_','').replace('.txt','')))
 
 def main():
     usage = "Usage: plot [options --path]"
@@ -75,7 +93,8 @@ def main():
 
     options = vars(options)
     parse(**options)
-    plot_loss(**options)
+    plot_all_loss(**options)
+    plot_sep_loss(**options)
 
 if __name__ == "__main__":
     main()
