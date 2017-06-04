@@ -132,7 +132,7 @@ class ConvModel(object):
             bn3_out = tf.layers.batch_normalization(affine1_out, training=is_training)
             dropout1_out = tf.layers.dropout(inputs=bn3_out, rate=0.4, training=is_training)
 
-            affine2_out = tf.layers.dense(inputs=conv_out_flat, units=512, activation=tf.nn.relu)
+            affine2_out = tf.layers.dense(inputs=dropout1_out, units=512, activation=tf.nn.relu)
             bn4_out = tf.layers.batch_normalization(affine2_out, training=is_training)
             conv_out = tf.layers.dropout(inputs=bn4_out, rate=0.4, training=is_training)
 
