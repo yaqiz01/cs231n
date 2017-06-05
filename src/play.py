@@ -207,7 +207,7 @@ def trainModel(**options):
         options['path'] = '{0}/data/'.format(vdir)
         options = play(framePaths, **options)
         sys.stdout.flush()
-        print('Configuration: num_frames={}'.format(len(framePaths)))
+    print('Configuration: num_frames={}'.format(len(framePaths)))
     return trainSpeed(framePaths, **options)
 
 def main():

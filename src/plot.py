@@ -22,7 +22,7 @@ def parse(**options):
                 if 'Configuration' in line:
                     key, val = line.split(' ')[1].split('=')
                     results[log][key] = val
-                if 'Error' in line or 'Fail' in line: # broken log
+                if 'Error' in line or 'Fail' in line or 'Interrupt' in line: # broken log
                     print('broken log {}'.format(log))
                     results.pop(log, None)
                     continue
