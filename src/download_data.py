@@ -24,9 +24,14 @@ full_links = [
     'http://kitti.is.tue.mpg.de/kitti/raw_data/2011_09_26_drive_0051/2011_09_26_drive_0051_sync.zip',
     'http://kitti.is.tue.mpg.de/kitti/raw_data/2011_09_26_drive_0056/2011_09_26_drive_0056_sync.zip',
     'http://kitti.is.tue.mpg.de/kitti/raw_data/2011_09_26_drive_0057/2011_09_26_drive_0057_sync.zip',
+    'http://kitti.is.tue.mpg.de/kitti/raw_data/2011_09_26_drive_0059/2011_09_26_drive_0059_sync.zip',
     'http://kitti.is.tue.mpg.de/kitti/raw_data/2011_09_26_drive_0060/2011_09_26_drive_0060_sync.zip',
+    'http://kitti.is.tue.mpg.de/kitti/raw_data/2011_09_26_drive_0084/2011_09_26_drive_0084_sync.zip',
     'http://kitti.is.tue.mpg.de/kitti/raw_data/2011_09_26_drive_0091/2011_09_26_drive_0091_sync.zip',
+    'http://kitti.is.tue.mpg.de/kitti/raw_data/2011_09_26_drive_0093/2011_09_26_drive_0093_sync.zip',
     'http://kitti.is.tue.mpg.de/kitti/raw_data/2011_09_26_drive_0095/2011_09_26_drive_0095_sync.zip',
+    'http://kitti.is.tue.mpg.de/kitti/raw_data/2011_09_26_drive_0096/2011_09_26_drive_0096_sync.zip',
+    'http://kitti.is.tue.mpg.de/kitti/raw_data/2011_09_26_drive_0104/2011_09_26_drive_0104_sync.zip',
     'http://kitti.is.tue.mpg.de/kitti/raw_data/2011_09_26_drive_0106/2011_09_26_drive_0106_sync.zip',
     'http://kitti.is.tue.mpg.de/kitti/raw_data/2011_09_26_drive_0113/2011_09_26_drive_0113_sync.zip'
 ]
@@ -38,7 +43,7 @@ def call(cmd):
 def download(**options):
     sample = options['sample']
     path = options['path']
-    if sample: links = sample_links 
+    if sample: links = sample_links
     else: links = full_links
     for link in links:
         name = link.split('/')[-1].split('.zip')[0]

@@ -13,11 +13,12 @@ from play import *
 
 tf.app.flags.DEFINE_float("learning_rate", 0.001, "Learning rate.")
 tf.app.flags.DEFINE_float("dropout", 0.4, "Dropout rate.")
-tf.app.flags.DEFINE_integer("epochs", 10, "Number of epochs to train.")
+tf.app.flags.DEFINE_integer("epochs", 15, "Number of epochs to train.")
 tf.app.flags.DEFINE_integer("batch_size", 16, "Batch size to use during training.")
 tf.app.flags.DEFINE_integer("decay_step", 100, "Number of steps between decays.")
 tf.app.flags.DEFINE_float("decay_rate", 0.9, "Decay rate.")
 tf.app.flags.DEFINE_integer("print_every", 100, "How many iterations to do per print.")
+tf.app.flags.DEFINE_string("weight_init", "xavier", "tf method for weight initialization")
 FLAGS = tf.app.flags.FLAGS
 FLAGS._parse_flags()
 flagDict = FLAGS.__dict__['__flags']
@@ -77,6 +78,10 @@ def res_net(X, is_training):
 
 def alex_net(X, is_training):
     init = tf.contrib.layers.xavier_initializer()
+    if FLAGS.weight_init == "trunc_normal":
+        trunc_normal = lambda stddev: tf.truncated_normal_initializer(0.0, stddev)
+	init = trunc_normal(0.0005)
+
     with tf.variable_scope("conv_1"):
         X = tf.layers.conv2d(X, 64, 11, strides=4, activation=tf.nn.relu, kernel_initializer=init)
         X = tf.layers.max_pooling2d(X, 3, 2)
