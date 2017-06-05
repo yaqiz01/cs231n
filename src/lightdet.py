@@ -12,10 +12,10 @@ from multiprocessing.pool import ThreadPool
 from functools import partial
 import matplotlib.patches as patches
 
-labels = dict(r='red_light', y='yellow_light', g='green_light')
-fontcolors = dict(r='red', y='chocolate', g='green')
-
 def findLight(lc, cmks, img, **options):
+    labels = dict(r='red_light', y='yellow_light', g='green_light')
+    fontcolors = dict(r='red', y='chocolate', g='green')
+
     # mode='compare'
     mode='label'
     if 'mode' in options:

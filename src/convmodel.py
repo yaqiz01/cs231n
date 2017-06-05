@@ -1,6 +1,7 @@
 from __future__ import division
 from __future__ import print_function
 
+from _init_paths import *
 import logging
 import os
 from datetime import datetime
@@ -17,7 +18,6 @@ tf.app.flags.DEFINE_integer("batch_size", 16, "Batch size to use during training
 tf.app.flags.DEFINE_integer("decay_step", 100, "Number of steps between decays.")
 tf.app.flags.DEFINE_float("decay_rate", 0.9, "Decay rate.")
 tf.app.flags.DEFINE_integer("print_every", 100, "How many iterations to do per print.")
-tf.app.flags.DEFINE_string("train_dir", "../scratch", "Training directory to save the model parameters (default: ../scratch).")
 FLAGS = tf.app.flags.FLAGS
 FLAGS._parse_flags()
 flagDict = FLAGS.__dict__['__flags']
@@ -112,11 +112,14 @@ class ConvModel(object):
         # implement learning rate annealing
         self.session = tf.Session()
         self.options = options
+        self.setup_placeholders(**options)
+        self.setup_system()
+        self.setup_loss()
+        self.saver = tf.train.Saver(max_to_keep=50)
 
     def close(self):
         self.session.close()
 
-    # def setup_placeholders(self, X_train):
     def setup_placeholders(self, **options):
         tp = tf.float32
         H,W,C = options['inputshape']
@@ -188,7 +191,8 @@ class ConvModel(object):
 
         feed_dict = {}
         feed_dict[self.X_placeholder] = X
-        feed_dict[self.y_placeholder] = y
+        if y is not None:
+            feed_dict[self.y_placeholder] = y
         feed_dict[self.is_training] = is_training
 
         return feed_dict
@@ -209,16 +213,36 @@ class ConvModel(object):
 
         return loss, lr, gs
 
-    def test(self, qns, mask_qns, cons, mask_cons, labels):
+    def get_model_path(self):
+        return SCRATCH_PATH + "/convmodel_speedmode_{}_convmode_{}/".format(self.options['speedmode'], self.options['convmode'])
+
+    def restore(self):
+        model_path = self.get_model_path()
+        if not os.path.exists(model_path):
+            print('Error! Do not have saved parameter for {}'.format(model_path))
+            sys.exit(-1)
+        logging.info("Loading model parameters from {}".format(model_path))
+        self.saver.restore(self.session, model_path + "model.weights")
+
+    def test(self, X_test):
         """
         in here you should compute a cost for your validation set
         and tune your hyperparameters according to the validation set performance
         :param
         :return loss: validation loss for this batch
         """
-        pass
 
-        # TODO
+        # compute loss for every single example and add together
+        input_feed = self.create_feed_dict(np.array([X_test]), None, is_training=False)
+
+        output_feed = self.pred
+
+        y = self.session.run(output_feed, feed_dict=input_feed)
+        vf = y[0, 0]
+        wu = y[0, 1]
+        af = y[0, 2]
+
+        return vf, wu, af
 
     def validate(self, X_val, y_val):
         """
@@ -283,11 +307,6 @@ class ConvModel(object):
 
         plot_losses = self.options['plot_losses']
 
-        self.setup_placeholders(**self.options)
-        self.setup_system()
-        self.setup_loss()
-        self.saver = tf.train.Saver(max_to_keep=50)
-
         # print number of parameters
         params = tf.trainable_variables()
         num_params = sum(map(lambda t: np.prod(tf.shape(t.value()).eval(session=self.session)), params))
@@ -322,7 +341,7 @@ class ConvModel(object):
                 plt.ylabel('minibatch loss')
                 plt.show()
         # save model weights
-        model_path = FLAGS.train_dir + "/convmodel_speedmode_{}_convmode_{}/".format(self.options['speedmode'], self.options['convmode'])
+        model_path = self.get_model_path()
         if not os.path.exists(model_path):
             os.makedirs(model_path)
         logging.info("Saving model parameters...")

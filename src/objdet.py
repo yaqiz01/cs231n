@@ -96,10 +96,6 @@ def drawObj(ax, scores, boxes, **options):
         draw_detections(cls, dets, ax, thresh=CONF_THRESH)
 
 def getObj(im, **options):
-    from networks.factory import get_network
-    from fast_rcnn.config import cfg
-    from fast_rcnn.test import im_detect
-    from fast_rcnn.nms_wrapper import nms
     path = options['path']
     fn = options['fn']
     bbox_path = '{0}{1}.bbox'.format(SCRATCH_PATH,
@@ -115,10 +111,13 @@ def getObj(im, **options):
         scores = obj['scores']
         boxes = obj['boxes']
     else:
+        from fast_rcnn.config import cfg
+        from fast_rcnn.test import im_detect
+        from fast_rcnn.nms_wrapper import nms
         # print('recompute {}'.format(bbox_path))
         timer = Timer()
-        timer.tic()
         initSession(**options)
+        timer.tic()
         scores, boxes = im_detect(sess, net, im)
         timer.toc()
         print ('Detection took {:.3f}s for '
@@ -214,7 +213,11 @@ def demo(image_name):
         dets = dets[keep, :]
         vis_detections(im, cls, dets, ax, thresh=CONF_THRESH)
 
+has_init = False
+
 def initSession(**options):
+    global has_init
+    if has_init: return
     from networks.factory import get_network
     from fast_rcnn.test import im_detect
     global sess, net
@@ -227,6 +230,7 @@ def initSession(**options):
     # load model
     saver = tf.train.Saver(write_version=tf.train.SaverDef.V1)
     saver.restore(sess, options['modelpath'])
+    has_init = True
    
     #sess.run(tf.initialize_all_variables())
 
