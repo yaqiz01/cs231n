@@ -14,9 +14,9 @@ from play import *
 tf.app.flags.DEFINE_float("learning_rate", 0.001, "Learning rate.")
 tf.app.flags.DEFINE_float("dropout", 0.5, "Dropout rate.")
 tf.app.flags.DEFINE_integer("epochs", 15, "Number of epochs to train.")
-tf.app.flags.DEFINE_integer("batch_size", 16, "Batch size to use during training.")
+tf.app.flags.DEFINE_integer("batch_size", 32, "Batch size to use during training.")
 tf.app.flags.DEFINE_integer("decay_step", 100, "Number of steps between decays.")
-tf.app.flags.DEFINE_float("decay_rate", 0.9, "Decay rate.")
+tf.app.flags.DEFINE_float("decay_rate", 0.95, "Decay rate.")
 tf.app.flags.DEFINE_integer("print_every", 100, "How many iterations to do per print.")
 tf.app.flags.DEFINE_string("weight_init", "xavier", "tf method for weight initialization")
 FLAGS = tf.app.flags.FLAGS
@@ -199,6 +199,8 @@ class ConvModel(object):
 
         elif self.options['convmode'] == 2:
             alex_out = alex_net(X, is_training)
+            flat_dim = np.product(alex_out.shape[1:]).value
+            conv_out = tf.reshape(alex_out, [-1, flat_dim])
 
         elif self.options['convmode'] == 3:
             with slim.arg_scope(alexnet_v2_arg_scope()):
