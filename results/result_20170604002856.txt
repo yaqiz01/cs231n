@@ -88,3 +88,4 @@ INFO:Epoch 10 out of 10
 
 INFO:Saving model parameters...
 
+Configuration: learning_rate=0.005

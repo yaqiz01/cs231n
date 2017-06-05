@@ -18,6 +18,7 @@ Configuration: startframe=0
 Configuration: path=../kitti/2011_09_26-1/data
 Configuration: rseg=3
 Configuration: speedmode=0
+Configuration: learning_rate=0.001
 Playing video ../kitti/2011_09_26-8/data/
 Configuration: num_frames=47
 Playing video ../kitti/2011_09_26-7/data/
