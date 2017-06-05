@@ -3,7 +3,7 @@ from os.path import isfile, isdir, join, splitext, basename, dirname
 import numpy as np
 import matplotlib.pyplot as plt
 import argparse
-
+from matplotlib.font_manager import FontProperties
 
 def parse(**options):
     path = options['path']
@@ -48,35 +48,44 @@ def lookup(d):
     return label
 
 def plot_all_loss(**options):
-    plt.figure(1, figsize=(8,3))
-    ax1 = plt.subplot(1,2,1)
+    logscale = options['logscale']
+    fig, (ax1, ax2) = plt.subplots(1,2, figsize=(12,3))
     handles = []
     for log in logs:
         label = lookup(results[log])
-        handles += (ax1.plot(results[log]['epoch'], results[log]['train_mse'], label=label))
+        if logscale:
+            handles += (ax1.semilogy(results[log]['epoch'], results[log]['train_mse'], label=label))
+        else:
+            handles += (ax1.plot(results[log]['epoch'], results[log]['train_mse'], label=label))
     ax1.set_title('train_loss')
     ax1.grid(True)
     ax1.set_xlabel('epoch')
-    ax2 = plt.subplot(1,2,2)
     handles = []
     for log in logs:
         label = lookup(results[log])
-        handles += (ax2.plot(results[log]['epoch'], results[log]['val_mse'], label=label))
+        if logscale:
+            handles += (ax2.semilogy(results[log]['epoch'], results[log]['val_mse'], label=label))
+        else:
+            handles += (ax2.plot(results[log]['epoch'], results[log]['val_mse'], label=label))
     ax2.set_title('val_loss')
     ax2.grid(True)
     ax2.set_xlabel('epoch')
-    ax2.legend(handles=handles)
-    plt.gcf().subplots_adjust(bottom=0.15, top=0.85)
+    ax2.legend(handles=handles, loc='center left', bbox_to_anchor=(1, 0.5))
+    plt.gcf().subplots_adjust(bottom=0.15, top=0.85, right=0.75)
     plt.savefig('{}/loss_all.png'.format(options['path']))
 
 def plot_sep_loss(**options):
+    logscale = options['logscale']
     plt.clf()
     for i, log in enumerate(logs):
-        plt.figure(i+1, figsize=(4,3))
+        fig, ax1 = plt.subplots(figsize=(4,3))
         handles = []
-        ax1 = plt.subplot()
-        handles += (ax1.plot(results[log]['epoch'], results[log]['train_mse'], label='train_mse'))
-        handles += (ax1.plot(results[log]['epoch'], results[log]['val_mse'], label='val_mse'))
+        if logscale:
+            handles += (ax1.semilogy(results[log]['epoch'], results[log]['train_mse'], label='train_mse'))
+            handles += (ax1.semilogy(results[log]['epoch'], results[log]['val_mse'], label='val_mse'))
+        else:
+            handles += (ax1.plot(results[log]['epoch'], results[log]['train_mse'], label='train_mse'))
+            handles += (ax1.plot(results[log]['epoch'], results[log]['val_mse'], label='val_mse'))
         ax1.set_title('loss of {}'.format(lookup(results[log])))
         ax1.grid(True)
         ax1.set_xlabel('epoch')
@@ -89,6 +98,8 @@ def main():
     parser = argparse.ArgumentParser(description='Visualize a sequence of images as video')
     parser.add_argument('--path', dest='path', action='store', default='../results',
             help='Specify path for result logs')
+    parser.add_argument('--logscale', dest='logscale', action='store_true',default=False,
+        help='Use log scale')
     (options, args) = parser.parse_known_args()
 
     options = vars(options)
