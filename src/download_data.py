@@ -40,7 +40,7 @@ def download(**options):
     sample = options['sample']
     path = options['path']
     if sample: links = sample_links 
-    else: full_links
+    else: links = full_links
     for link in links:
         name = link.split('/')[-1].split('.zip')[0]
         date = name.split('_drive')[0]

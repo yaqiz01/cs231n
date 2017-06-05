@@ -81,6 +81,7 @@ def draw_detections(class_name, dets, ax, thresh=0.5):
                   fontsize=14)
 
 def drawObj(ax, scores, boxes, **options):
+    from fast_rcnn.nms_wrapper import nms
     # Visualize detections for each class
     CONF_THRESH = 0.8
     NMS_THRESH = 0.3
@@ -204,6 +205,8 @@ def demo(image_name):
         vis_detections(im, cls, dets, ax, thresh=CONF_THRESH)
 
 def initSession(**options):
+    from networks.factory import get_network
+    from fast_rcnn.test import im_detect
     global sess, net
     if sess is not None and net is not None:
         return
