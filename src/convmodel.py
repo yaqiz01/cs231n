@@ -19,6 +19,7 @@ tf.app.flags.DEFINE_float("decay_rate", 0.9, "Decay rate.")
 tf.app.flags.DEFINE_integer("print_every", 100, "How many iterations to do per print.")
 tf.app.flags.DEFINE_string("train_dir", "../scratch", "Training directory to save the model parameters (default: ../scratch).")
 FLAGS = tf.app.flags.FLAGS
+FLAGS._parse_flags()
 flagDict = FLAGS.__dict__['__flags']
 for flag in flagDict:
     print('Configuration: {}={}'.format(flag, flagDict[flag]))
