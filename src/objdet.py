@@ -81,6 +81,7 @@ def draw_detections(class_name, dets, ax, thresh=0.5):
                   fontsize=14)
 
 def drawObj(ax, scores, boxes, **options):
+    from fast_rcnn.nms_wrapper import nms
     # Visualize detections for each class
     CONF_THRESH = 0.8
     NMS_THRESH = 0.3
@@ -129,6 +130,7 @@ def getObj(im, **options):
     return (scores, boxes)
 
 def objToChannel(im, scores, boxes, **options):
+    from fast_rcnn.nms_wrapper import nms
     H,W,_ = im.shape
     
     channel = np.zeros((H,W,len(INTERESTED_CLASSES)))
@@ -156,18 +158,27 @@ def objToChannel(im, scores, boxes, **options):
     return channel
 
 def getObjChannel(im, **options):
-    path = options['path']
-    fn = options['fn']
-    obj_path = '{0}{1}.obj'.format(SCRATCH_PATH,
-      '{0}/{1}'.format(path,fn).replace('/','_').replace('..',''))
-    if isfile(obj_path):
-        if options['checkcache']: return
-        channel = pickle.load(open(obj_path, "rb" ))
+    # path = options['path']
+    # fn = options['fn']
+    # obj_path = '{0}{1}.obj'.format(SCRATCH_PATH,
+      # '{0}/{1}'.format(path,fn).replace('/','_').replace('..',''))
+    # if isfile(obj_path):
+        # if options['checkcache']: return
+        # channel = pickle.load(open(obj_path, "rb" ))
+    # else:
+        # options['checkcache'] = False
+        # scores, boxes = getObj(im, **options)
+        # channel = objToChannel(im, scores, boxes, **options)
+        # pickle.dump(channel , open(obj_path, "wb"))
+
+    if options['checkcache']:
+        getObj(im, **options)
+        return
     else:
         scores, boxes = getObj(im, **options)
         channel = objToChannel(im, scores, boxes, **options)
-        pickle.dump(channel , open(obj_path, "wb"))
-    return channel
+        # pickle.dump(channel , open(obj_path, "wb"))
+        return channel
 
 def demo(image_name):
     """Detect object classes in an image using pre-computed object proposals."""
@@ -204,6 +215,8 @@ def demo(image_name):
         vis_detections(im, cls, dets, ax, thresh=CONF_THRESH)
 
 def initSession(**options):
+    from networks.factory import get_network
+    from fast_rcnn.test import im_detect
     global sess, net
     if sess is not None and net is not None:
         return

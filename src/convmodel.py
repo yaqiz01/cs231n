@@ -121,7 +121,7 @@ class ConvModel(object):
         tp = tf.float32
         H,W,C = options['inputshape']
         self.X_placeholder = tf.placeholder(tp, [None, H, W, C])
-        self.y_placeholder = tf.placeholder(tp, [None,1])
+        self.y_placeholder = tf.placeholder(tp, [None,3])
         self.is_training = tf.placeholder(tf.bool)
 
     def setup_network(self, X, y, is_training):
