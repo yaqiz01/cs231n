@@ -33,7 +33,7 @@ train = optimizer.minimize(loss)
 init = tf.initialize_all_variables()
 
 # Launch the graph.
-sess = tf.Session(config=tf.ConfigProto(log_device_placement=True))
+sess = tf.Session(config=tf.ConfigProto(log_device_placement=True, device_count = {'GPU': 0}))
 sess.run(init)
 pdb.set_trace()
 for step in xrange(10):
