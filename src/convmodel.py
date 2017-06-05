@@ -12,7 +12,7 @@ from play import *
 
 tf.app.flags.DEFINE_float("learning_rate", 0.001, "Learning rate.")
 tf.app.flags.DEFINE_float("dropout", 0.4, "Dropout rate.")
-tf.app.flags.DEFINE_integer("epochs", 10, "Number of epochs to train.")
+tf.app.flags.DEFINE_integer("epochs", 15, "Number of epochs to train.")
 tf.app.flags.DEFINE_integer("batch_size", 16, "Batch size to use during training.")
 tf.app.flags.DEFINE_integer("decay_step", 100, "Number of steps between decays.")
 tf.app.flags.DEFINE_float("decay_rate", 0.9, "Decay rate.")
