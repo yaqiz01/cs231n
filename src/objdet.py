@@ -130,6 +130,7 @@ def getObj(im, **options):
     return (scores, boxes)
 
 def objToChannel(im, scores, boxes, **options):
+    from fast_rcnn.nms_wrapper import nms
     H,W,_ = im.shape
     
     channel = np.zeros((H,W,len(INTERESTED_CLASSES)))
@@ -165,6 +166,7 @@ def getObjChannel(im, **options):
         if options['checkcache']: return
         channel = pickle.load(open(obj_path, "rb" ))
     else:
+        options['checkcache'] = False
         scores, boxes = getObj(im, **options)
         channel = objToChannel(im, scores, boxes, **options)
         pickle.dump(channel , open(obj_path, "wb"))
