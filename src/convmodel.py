@@ -1,6 +1,7 @@
 from __future__ import division
 from __future__ import print_function
 
+from _init_paths import *
 import logging
 import os
 from datetime import datetime
@@ -11,13 +12,12 @@ from util import get_minibatches, Progbar
 from play import *
 
 tf.app.flags.DEFINE_float("learning_rate", 0.001, "Learning rate.")
-tf.app.flags.DEFINE_float("dropout", 0.4, "Dropout rate.")
+tf.app.flags.DEFINE_float("dropout", 0.5, "Dropout rate.")
 tf.app.flags.DEFINE_integer("epochs", 15, "Number of epochs to train.")
 tf.app.flags.DEFINE_integer("batch_size", 16, "Batch size to use during training.")
 tf.app.flags.DEFINE_integer("decay_step", 100, "Number of steps between decays.")
 tf.app.flags.DEFINE_float("decay_rate", 0.9, "Decay rate.")
 tf.app.flags.DEFINE_integer("print_every", 100, "How many iterations to do per print.")
-tf.app.flags.DEFINE_string("train_dir", "../scratch", "Training directory to save the model parameters (default: ../scratch).")
 tf.app.flags.DEFINE_string("weight_init", "xavier", "tf method for weight initialization")
 FLAGS = tf.app.flags.FLAGS
 FLAGS._parse_flags()
@@ -76,11 +76,13 @@ def res_net(X, is_training):
         block_in = layer_2
     return layer_2
 
+slim = tf.contrib.slim
+trunc_normal = lambda stddev: tf.truncated_normal_initializer(0.0, stddev)
+
 def alex_net(X, is_training):
     init = tf.contrib.layers.xavier_initializer()
     if FLAGS.weight_init == "trunc_normal":
-        trunc_normal = lambda stddev: tf.truncated_normal_initializer(0.0, stddev)
-	init = trunc_normal(0.0005)
+	    init = trunc_normal(0.0005)
 
     with tf.variable_scope("conv_1"):
         X = tf.layers.conv2d(X, 64, 11, strides=4, activation=tf.nn.relu, kernel_initializer=init)
@@ -103,6 +105,48 @@ def alex_net(X, is_training):
         X = tf.layers.dropout(X, rate=FLAGS.dropout, training=is_training)
     return X
 
+def alexnet_v2_arg_scope(weight_decay=0.0005):
+  with slim.arg_scope([slim.conv2d, slim.fully_connected],
+                      activation_fn=tf.nn.relu,
+                      biases_initializer=tf.constant_initializer(0.1),
+                      weights_regularizer=slim.l2_regularizer(weight_decay)):
+    with slim.arg_scope([slim.conv2d], padding='SAME'):
+      with slim.arg_scope([slim.max_pool2d], padding='VALID') as arg_sc:
+        return arg_sc
+
+def alexnet_v2(X, is_training, scope='alexnet_v2'):
+  with tf.variable_scope(scope, 'alexnet_v2', [X]) as sc:
+    # Collect outputs for conv2d, fully_connected and max_pool2d.
+    with slim.arg_scope([slim.conv2d, slim.fully_connected, slim.max_pool2d]):
+      net = slim.conv2d(X, 64, [11, 11], 4, padding='VALID',
+                        scope='conv1')
+      net = slim.max_pool2d(net, [3, 3], 2, scope='pool1')
+      net = slim.conv2d(net, 192, [5, 5], scope='conv2')
+      net = slim.max_pool2d(net, [3, 3], 2, scope='pool2')
+      net = slim.conv2d(net, 384, [3, 3], scope='conv3')
+      net = slim.conv2d(net, 384, [3, 3], scope='conv4')
+      net = slim.conv2d(net, 256, [3, 3], scope='conv5')
+      net = slim.max_pool2d(net, [3, 3], 2, scope='pool5')
+
+      # Use conv2d instead of fully_connected layers.
+      with slim.arg_scope([slim.conv2d],
+                          weights_initializer=trunc_normal(0.005),
+                          biases_initializer=tf.constant_initializer(0.1)):
+        net = slim.conv2d(net, 4096, [5, 5], padding='VALID',
+                          scope='fc6')
+        net = slim.dropout(net, FLAGS.dropout, is_training=is_training,
+                           scope='dropout6')
+        net = slim.conv2d(net, 4096, [1, 1], scope='fc7')
+        net = slim.dropout(net, FLAGS.dropout, is_training=is_training,
+                           scope='dropout7')
+        net = slim.conv2d(net, 4096, [1, 1],
+                          activation_fn=None,
+                          normalizer_fn=None,
+                          biases_initializer=tf.zeros_initializer(),
+                          scope='fc8')
+
+      return net
+
 class ConvModel(object):
     def __init__(self, options):
         """
@@ -117,11 +161,14 @@ class ConvModel(object):
         # implement learning rate annealing
         self.session = tf.Session()
         self.options = options
+        self.setup_placeholders(**options)
+        self.setup_system()
+        self.setup_loss()
+        self.saver = tf.train.Saver(max_to_keep=50)
 
     def close(self):
         self.session.close()
 
-    # def setup_placeholders(self, X_train):
     def setup_placeholders(self, **options):
         tp = tf.float32
         H,W,C = options['inputshape']
@@ -152,8 +199,12 @@ class ConvModel(object):
 
         elif self.options['convmode'] == 2:
             alex_out = alex_net(X, is_training)
-            flat_dim = np.product(alex_out.shape[1:]).value
-            conv_out = tf.reshape(alex_out, [-1, flat_dim])
+
+        elif self.options['convmode'] == 3:
+            with slim.arg_scope(alexnet_v2_arg_scope()):
+                alex_out = alexnet_v2(X, is_training)
+                flat_dim = np.product(alex_out.shape[1:]).value
+                conv_out = tf.reshape(alex_out, [-1, flat_dim])
 
         out_dim = np.product(y.shape[1:]).value
         affine3_out = tf.layers.dense(inputs=conv_out, units=out_dim, kernel_initializer=tf.contrib.layers.xavier_initializer())
@@ -193,7 +244,8 @@ class ConvModel(object):
 
         feed_dict = {}
         feed_dict[self.X_placeholder] = X
-        feed_dict[self.y_placeholder] = y
+        if y is not None:
+            feed_dict[self.y_placeholder] = y
         feed_dict[self.is_training] = is_training
 
         return feed_dict
@@ -214,16 +266,36 @@ class ConvModel(object):
 
         return loss, lr, gs
 
-    def test(self, qns, mask_qns, cons, mask_cons, labels):
+    def get_model_path(self):
+        return SCRATCH_PATH + "/convmodel_speedmode_{}_convmode_{}/".format(self.options['speedmode'], self.options['convmode'])
+
+    def restore(self):
+        model_path = self.get_model_path()
+        if not os.path.exists(model_path):
+            print('Error! Do not have saved parameter for {}'.format(model_path))
+            sys.exit(-1)
+        logging.info("Loading model parameters from {}".format(model_path))
+        self.saver.restore(self.session, model_path + "model.weights")
+
+    def test(self, X_test):
         """
         in here you should compute a cost for your validation set
         and tune your hyperparameters according to the validation set performance
         :param
         :return loss: validation loss for this batch
         """
-        pass
 
-        # TODO
+        # compute loss for every single example and add together
+        input_feed = self.create_feed_dict(np.array([X_test]), None, is_training=False)
+
+        output_feed = self.pred
+
+        y = self.session.run(output_feed, feed_dict=input_feed)
+        vf = y[0, 0]
+        wu = y[0, 1]
+        af = y[0, 2]
+
+        return vf, wu, af
 
     def validate(self, X_val, y_val):
         """
@@ -288,11 +360,6 @@ class ConvModel(object):
 
         plot_losses = self.options['plot_losses']
 
-        self.setup_placeholders(**self.options)
-        self.setup_system()
-        self.setup_loss()
-        self.saver = tf.train.Saver(max_to_keep=50)
-
         # print number of parameters
         params = tf.trainable_variables()
         num_params = sum(map(lambda t: np.prod(tf.shape(t.value()).eval(session=self.session)), params))
@@ -327,7 +394,7 @@ class ConvModel(object):
                 plt.ylabel('minibatch loss')
                 plt.show()
         # save model weights
-        model_path = FLAGS.train_dir + "/convmodel_speedmode_{}_convmode_{}/".format(self.options['speedmode'], self.options['convmode'])
+        model_path = self.get_model_path()
         if not os.path.exists(model_path):
             os.makedirs(model_path)
         logging.info("Saving model parameters...")
