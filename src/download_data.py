@@ -1,3 +1,4 @@
+from _init_paths import *
 from os import listdir
 from os.path import isfile, isdir, join, splitext, basename, dirname
 import numpy as np
@@ -33,9 +34,7 @@ full_links = [
     'http://kitti.is.tue.mpg.de/kitti/raw_data/2011_09_26_drive_0057/2011_09_26_drive_0096_sync.zip',
     'http://kitti.is.tue.mpg.de/kitti/raw_data/2011_09_26_drive_0057/2011_09_26_drive_0104_sync.zip',
     'http://kitti.is.tue.mpg.de/kitti/raw_data/2011_09_26_drive_0106/2011_09_26_drive_0106_sync.zip',
-    'http://kitti.is.tue.mpg.de/kitti/raw_data/2011_09_26_drive_0113/2011_09_26_drive_0113_sync.zip',
-    'http://kitti.is.tue.mpg.de/kitti/raw_data/2011_09_28_drive_0001/2011_09_28_drive_0001_sync.zip',
-    'http://kitti.is.tue.mpg.de/kitti/raw_data/2011_09_29_drive_0026/2011_09_29_drive_0026_sync.zip'
+    'http://kitti.is.tue.mpg.de/kitti/raw_data/2011_09_26_drive_0113/2011_09_26_drive_0113_sync.zip'
 ]
 
 def call(cmd):
@@ -49,6 +48,10 @@ def download(**options):
     else: links = full_links
     for link in links:
         name = link.split('/')[-1].split('.zip')[0]
+        data_dir = '{}/{}'.format(path, name)
+        if isdir(data_dir):
+            print(data_dir + " already exist!")
+            continue
         date = name.split('_drive')[0]
         call("wget {} -P {}".format(link, path))
         call("unzip {}/{}.zip -d {}".format(path, name, path))
@@ -61,7 +64,7 @@ def download(**options):
 def main():
     usage = "Usage: plot [options --path]"
     parser = argparse.ArgumentParser(description='Visualize a sequence of images as video')
-    parser.add_argument('--path', dest='path', action='store', default='../kitti',
+    parser.add_argument('--path', dest='path', action='store', default=KITTI_PATH,
             help='Specify path for kitti')
     parser.add_argument('--sample', dest='sample', action='store_true',default=False,
         help='Download sample data')

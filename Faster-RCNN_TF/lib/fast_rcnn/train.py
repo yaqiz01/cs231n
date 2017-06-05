@@ -258,7 +258,7 @@ def train_net(network, imdb, roidb, output_dir, pretrained_model=None, max_iters
     """Train a Fast R-CNN network."""
     roidb = filter_roidb(roidb)
     saver = tf.train.Saver(max_to_keep=100)
-    with tf.Session(config=tf.ConfigProto(allow_soft_placement=True)) as sess:
+    with tf.Session(config=tf.ConfigProto(allow_soft_placement=True, device_count = {'GPU': 0})) as sess:
         sw = SolverWrapper(sess, saver, network, imdb, roidb, output_dir, pretrained_model=pretrained_model)
         print 'Solving...'
         sw.train_model(sess, max_iters)
