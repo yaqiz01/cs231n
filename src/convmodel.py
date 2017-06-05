@@ -10,7 +10,7 @@ from speeddet import *
 from util import get_minibatches, Progbar
 from play import *
 
-tf.app.flags.DEFINE_float("learning_rate", 0.005, "Learning rate.")
+tf.app.flags.DEFINE_float("learning_rate", 0.001, "Learning rate.")
 tf.app.flags.DEFINE_float("dropout", 0.4, "Dropout rate.")
 tf.app.flags.DEFINE_integer("epochs", 10, "Number of epochs to train.")
 tf.app.flags.DEFINE_integer("batch_size", 16, "Batch size to use during training.")
