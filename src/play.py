@@ -18,6 +18,16 @@ import time
 import logging
 
 logging.basicConfig(format='%(levelname)s:%(message)s', level=logging.INFO)
+fullname = {
+    'vf':'Forward Velocity',
+    'wu':'Upward angular velocity',
+    'af':'Forward Acceleration'
+}
+unit = {
+    'vf':'m/s',
+    'wu':'deg/sec',
+    'af':'m/s^2'
+}
 
 def roadSignMatching(frame, org, sn):
     sign = cv2.imread(signs[sn])
@@ -41,6 +51,19 @@ def setInputShape(im, **options):
     options['inputshape'] = (H,W,C) 
     return options
 
+def restoreModel(**options):
+    modelname = options['model']
+    speedmode = options['speedmode']
+    mode = options['mode']
+    if mode == 'all':
+        if modelname=='conv':
+            from convmodel import ConvModel
+            model = ConvModel(options)
+            model.restore()
+        elif modelname=='linear':
+            pass #TODO
+    return model
+
 def play(framePaths, **options):
     model = options['model']
     mode = options['mode']
@@ -58,7 +81,12 @@ def play(framePaths, **options):
         matches = mcread(path)
     if mode in ['trainspeed', 'all']:
         headers = loadHeader('{0}/../oxts'.format(path))
-
+    if mode in ['trainspeed', 'all']:
+        im = cv2.imread(join(path, files[0]), cv2.IMREAD_COLOR)
+        options = setInputShape(im, **options)
+    if mode in ['all']:
+        restored_model = restoreModel(**options)
+    labels = dict(vf=[], wu=[], af=[])
     img = None
     icmp = None
     porg = None
@@ -92,8 +120,8 @@ def play(framePaths, **options):
                 options['flowmode'] = 'avgflow'
                 im = detflow(im, porg, org, **options)
         elif mode == 'objdet':
-            scores, boxes = getObj(im, **options)
-            icmp = getObjChannel(im, **options)
+            scores, boxes = getObj(im, checkcache=False, **options)
+            icmp = getObjChannel(im, checkcache=False, **options)
             icmp = icmp[:,:,0].squeeze() # plot 1 interested channel
         elif mode == 'trainspeed':
             if porg is not None:
@@ -110,7 +138,8 @@ def play(framePaths, **options):
                     # speedX = np.concatenate((speedX,objchannel), axis=-1)
                 # if includeimg:
                     # speedX = np.concatenate((speedX,im), axis=-1)
-                framePaths.append(join(path, impath))
+                framePath = join(path, impath)
+                framePaths.append(framePath)
                 # print('speedmode={} speedX.shape={}'.format(speedmode, np.array(speedX).shape))
                 # loadLabels(fn, headers, labels, '{0}/../oxts'.format(path))
         elif mode == 'test':
@@ -121,22 +150,21 @@ def play(framePaths, **options):
             h,w,_ = im.shape
             h = 200
             icmp = np.ones((h,w,3), np.uint8) * 255
-            im, speed, gtspeed, angle, gtangle = predSpeed(im, porg, org, labels, **options)
+            im, ans = predSpeed(im, porg, org, labels, restored_model, **options)
             im, lights = detlight(im, org, mode='label')
             if options['detsign']:
                 im, signs = loadMatch(im, org, fn, matches)
-            scores, boxes = getObj(im, **options)
+            scores, boxes = getObj(im, checkcache=False, **options)
 
             info = []
             info.append('Frame: {0}'.format(fn))
-            if speed is None:
-                info.append('Predicted speed: X m/s. ground truth: X m/s')
-                info.append('Predicted angular velocity: X deg/sec. ground truth: X deg/sec')
-                info.append('Current state: X')
-            else:
-                info.append('Predicted speed: {:02.2f}m/s. ground truth: {:02.2f}m/s'.format(speed,
-                    gtspeed))
-                info.append('Predicted angular velocity: {:02.4f} deg/sec. ground truth: {:02.4f} deg/sec'.format(angle, gtangle))
+            for k in ans:
+                pred, gt = ans[k]
+                info.append('Predicted {}: {} {}. Ground Truth: {} {}'.format(fullname[k], pred,
+                    unit[k], gt, unit[k]))
+            if 'vf' in ans and 'wu' in ans:
+                speed,_ = ans['vf']
+                angle,_ = ans['wu']
                 if (speed > 2):
                     if abs(angle)<2:
                         state = 'Forward'
@@ -195,8 +223,6 @@ def play(framePaths, **options):
         plt.pause(options['delay'])
         if imgax is not None:
             imgax.clear()
-    if mode in ['trainspeed']:
-        options = setInputShape(im, **options)
     return options
 
 def trainModel(**options):

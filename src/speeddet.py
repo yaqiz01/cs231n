@@ -137,40 +137,51 @@ def loadLabels(fn, headers, labels, labelpath):
         for key in labels:
             labels[key].append(float(vals[headers[key]]))
 
-def loadData(framePaths, **options):
+def loadInputX(prev, cur, **options):
     H,W,C = options['inputshape']
     model = options['model']
+    path = options['path']
+    fn = options['fn']
+    speedmode = options['speedmode']
+    speedX = np.zeros((H,W,0))
+    includeflow, includeobj, includeimg = lookup(speedmode)
+    options['checkcache'] = False
+    im = cur
+    if includeflow:
+        if model=='linear':
+            flow = polarflow(prev, cur, **options)
+        elif model=='conv':
+            flow = getflow(prev, cur, **options)
+        speedX = np.concatenate((speedX,flow), axis=-1)
+    if includeobj:
+        objchannel = getObjChannel(im, **options)
+        speedX = np.concatenate((speedX,objchannel), axis=-1)
+    if includeimg:
+        speedX = np.concatenate((speedX,im), axis=-1)
+    if speedX.shape != (H,W,C):
+        raise Exception('data input shape={} not equals to expected shape!{}'.format(
+            (H,W,C), speedX.shape))
+    return speedX
+
+def loadData(framePaths, **options):
+    H,W,C = options['inputshape']
+    speedmode = options['speedmode']
     speedXs = []
     path = dirname(framePaths[0])
     headers = loadHeader('{0}/../oxts'.format(path))
     labels = dict(vf=[], wu=[], af=[])
     im = None
     for framePath in framePaths:
-        path = dirname(framePath) + "/"
         fn, ext = splitext(basename(framePath))
+        path = dirname(framePath) + "/"
         options['path'] = path
         options['fn'] = fn
-        speedX = np.zeros((H,W,0))
-        speedmode = options['speedmode']
         includeflow, includeobj, includeimg = lookup(speedmode)
-        options['checkcache'] = False
-        if includeflow:
-            if model=='linear':
-                flow = polarflow(None, None, **options)
-            elif model=='conv':
-                flow = getflow(None, None, **options)
-            speedX = np.concatenate((speedX,flow), axis=-1)
-        if includeobj:
+        if includeobj or includeobj:
             im = cv2.imread(framePath, cv2.IMREAD_COLOR)
-            objchannel = getObjChannel(im, **options)
-            speedX = np.concatenate((speedX,objchannel), axis=-1)
-        if includeimg:
-            if im==None:
-                im = cv2.imread(framePath, cv2.IMREAD_COLOR)
-            speedX = np.concatenate((speedX,im), axis=-1)
-        if speedX.shape != (H,W,C):
-            raise Exception('data input shape={} not equals to expected shape!{}'.format(
-                (H,W,C), speedX.shape))
+        else:
+            im = None
+        speedX = loadInputX(None, im, **options)
         speedXs.append(speedX)
         # print('speedmode={} speedX.shape={}'.format(speedmode, np.array(speedX).shape))
         loadLabels(fn, headers, labels, '{0}/../oxts'.format(path))
@@ -197,24 +208,27 @@ def polarflow(prev, cur, **options):
     ang = np.reshape(np.angle(cplx), (H,W,1))
     return np.concatenate((mag,ang), axis=-1)
 
-def predSpeed(im, prev, cur, labels, **options):
+def predSpeed(im, prev, cur, labels, restored_model, **options):
+    path = options['path']
     model = options['model']
     speedmode = options['speedmode']
     if prev is None:
-        return im, None, None, None, None
-    flow = polarflow(prev, cur, **options)
-    includeflow, includeobj, includeimg = lookup(speedmode)
-    if includeobj:
-        pass #TODO
-    else:
-        X_test = flow
-
+        return im, {}
+    X_test = loadInputX(prev, cur, **options)
     if model=='linear':
-        speed, angle = linearRegressionModelTest(X_test, **options)
-
-    gtspeed = labels['vf'][-1]
-    gtangle = np.rad2deg(labels['wu'][-1])
-    return im, speed, gtspeed, angle, gtangle
+        vf, wu = linearRegressionModelTest(X_test, **options)
+        wu = np.rad2deg(wu)
+        gtvf = labels['vf'][-1]
+        gtwu = np.rad2deg(labels['wu'][-1])
+        res = dict(vf=(vf, gtvf), wu=(wu, gtwu))
+    elif model=='conv':
+        vf, wu, af = restored_model.test(X_test)
+        wu = np.rad2deg(wu)
+        gtvf = labels['vf'][-1]
+        gtwu = np.rad2deg(labels['wu'][-1])
+        gtaf = labels['af'][-1]
+        res = dict(vf=(vf, gtvf), wu=(wu, gtwu), af=(af, gtaf))
+    return im, res 
 
 def trainSpeed(frameFns, **options):
     from convmodel import ConvModel
