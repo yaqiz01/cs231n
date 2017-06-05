@@ -143,7 +143,7 @@ def loadData(framePaths, **options):
     speedXs = []
     path = dirname(framePaths[0])
     headers = loadHeader('{0}/../oxts'.format(path))
-    labels = dict(vf=[], wu=[])
+    labels = dict(vf=[], wu=[], af=[])
     im = None
     for framePath in framePaths:
         path = dirname(framePath) + "/"
@@ -175,7 +175,10 @@ def loadData(framePaths, **options):
         # print('speedmode={} speedX.shape={}'.format(speedmode, np.array(speedX).shape))
         loadLabels(fn, headers, labels, '{0}/../oxts'.format(path))
     speedXs = np.reshape(np.array(speedXs), (-1, H,W,C))
-    speedYs = np.reshape(np.array(labels['vf']), (-1, 1))
+    vf = np.reshape(labels['vf'], (-1, 1))
+    wu = np.reshape(labels['wu'], (-1, 1))
+    af = np.reshape(labels['af'], (-1, 1))
+    speedYs = np.hstack((vf, wu, af))
     return ([speedXs, speedYs])
 
 def polarflow(prev, cur, **options):
