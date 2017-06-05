@@ -42,7 +42,9 @@ def download(**options):
     else: links = full_links
     for link in links:
         name = link.split('/')[-1].split('.zip')[0]
-        if isdir('{}/{}'.format(path, name)):
+        data_dir = '{}/{}'.format(path, name)
+        if isdir(data_dir):
+            print(data_dir + " already exist!")
             continue
         date = name.split('_drive')[0]
         call("wget {} -P {}".format(link, path))
