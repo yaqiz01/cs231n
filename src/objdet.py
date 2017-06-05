@@ -158,19 +158,27 @@ def objToChannel(im, scores, boxes, **options):
     return channel
 
 def getObjChannel(im, **options):
-    path = options['path']
-    fn = options['fn']
-    obj_path = '{0}{1}.obj'.format(SCRATCH_PATH,
-      '{0}/{1}'.format(path,fn).replace('/','_').replace('..',''))
-    if isfile(obj_path):
-        if options['checkcache']: return
-        channel = pickle.load(open(obj_path, "rb" ))
+    # path = options['path']
+    # fn = options['fn']
+    # obj_path = '{0}{1}.obj'.format(SCRATCH_PATH,
+      # '{0}/{1}'.format(path,fn).replace('/','_').replace('..',''))
+    # if isfile(obj_path):
+        # if options['checkcache']: return
+        # channel = pickle.load(open(obj_path, "rb" ))
+    # else:
+        # options['checkcache'] = False
+        # scores, boxes = getObj(im, **options)
+        # channel = objToChannel(im, scores, boxes, **options)
+        # pickle.dump(channel , open(obj_path, "wb"))
+
+    if options['checkcache']:
+        getObj(im, **options)
+        return
     else:
-        options['checkcache'] = False
         scores, boxes = getObj(im, **options)
         channel = objToChannel(im, scores, boxes, **options)
-        pickle.dump(channel , open(obj_path, "wb"))
-    return channel
+        # pickle.dump(channel , open(obj_path, "wb"))
+        return channel
 
 def demo(image_name):
     """Detect object classes in an image using pre-computed object proposals."""

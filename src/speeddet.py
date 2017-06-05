@@ -144,6 +144,7 @@ def loadData(framePaths, **options):
     path = dirname(framePaths[0])
     headers = loadHeader('{0}/../oxts'.format(path))
     labels = dict(vf=[], wu=[])
+    im = None
     for framePath in framePaths:
         path = dirname(framePath) + "/"
         fn, ext = splitext(basename(framePath))
@@ -160,10 +161,12 @@ def loadData(framePaths, **options):
                 flow = getflow(None, None, **options)
             speedX = np.concatenate((speedX,flow), axis=-1)
         if includeobj:
-            objchannel = getObjChannel(None, **options)
+            im = cv2.imread(framePath, cv2.IMREAD_COLOR)
+            objchannel = getObjChannel(im, **options)
             speedX = np.concatenate((speedX,objchannel), axis=-1)
         if includeimg:
-            im = cv2.imread(framePath, cv2.IMREAD_COLOR)
+            if im==None:
+                im = cv2.imread(framePath, cv2.IMREAD_COLOR)
             speedX = np.concatenate((speedX,im), axis=-1)
         if speedX.shape != (H,W,C):
             raise Exception('data input shape={} not equals to expected shape!{}'.format(

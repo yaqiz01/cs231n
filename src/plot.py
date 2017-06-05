@@ -42,7 +42,7 @@ def lookup(d):
     if int(d['convmode'])==0: label += 'baseline-cnn'
     elif int(d['convmode'])==1: label += 'resnet'
     elif int(d['convmode'])==2: label += 'alexnet'
-    label += '_{}'.format(d['learning_rate'])
+    label += '_lr{}'.format(d['learning_rate'])
     label += '_'
     label += '#{}'.format(d['num_frames'])
 
