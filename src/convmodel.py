@@ -170,9 +170,15 @@ class ConvModel(object):
         self.session.close()
 
     def setup_placeholders(self, **options):
-        tp = tf.float32
         H,W,C = options['inputshape']
-        self.X_placeholder = tf.placeholder(tp, [None, H, W, C])
+        flowmode = options['flowmode']
+        rseg = options['rseg']
+        cseg = options['cseg']
+        tp = tf.float32
+        if flowmode in [0,1]:
+            self.X_placeholder = tf.placeholder(tp, [None, H, W, C])
+        elif flowmode in [2,3]:
+            self.X_placeholder = tf.placeholder(tp, [None, rseg, cseg, C])
         self.y_placeholder = tf.placeholder(tp, [None,3])
         self.is_training = tf.placeholder(tf.bool)
 
