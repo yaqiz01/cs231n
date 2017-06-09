@@ -276,9 +276,8 @@ class ConvModel(object):
             _, loss, lr, gs = self.session.run(output_feed, feed_dict=input_feed)
             return loss, lr, gs
 
-    def get_model_path(self, epoch):
-        return SCRATCH_PATH + ("/convmodel_speedmode_{}_convmode_{}_epoch_{}/"
-            .format(self.options['speedmode'], self.options['convmode'], epoch))
+    def get_model_path(self):
+        return SCRATCH_PATH + ("convmodel_speedmode_{}_convmode_{}/".format(self.options['speedmode'], self.options['convmode']))
 
     def restore(self):
         model_path = self.get_model_path()
@@ -402,6 +401,7 @@ class ConvModel(object):
         # y_train = np.reshape(vly_train, (-1, 1))
         # y_val = np.reshape(vly_val, (-1, 1))
         # training
+        min_val_mse = sys.maxint
         for epoch in range(FLAGS.epochs):
             logging.info("Epoch %d out of %d", epoch+1, FLAGS.epochs)
             total_train_mse, train_losses, total_val_mse, val_losses = \
@@ -409,11 +409,13 @@ class ConvModel(object):
             logging.info("Epoch {2}, Overall train mse = {0:.4g}, Overall val mse = {1:.4g}\n"\
                   .format(total_train_mse, total_val_mse, epoch+1))
             # save model weights
-            model_path = self.get_model_path(epoch+1)
-            if not os.path.exists(model_path):
-                os.makedirs(model_path)
-            logging.info("Saving model parameters...")
-            self.saver.save(self.session, model_path + "model.weights")
+            if total_val_mse < min_val_mse:
+                min_val_mse = total_val_mse
+                model_path = self.get_model_path()
+                if not os.path.exists(model_path):
+                    os.makedirs(model_path)
+                logging.info("Saving model parameters of epoch {}...".format(epoch+1))
+                self.saver.save(self.session, model_path + "model.weights")
             if plot_losses:
                 plt.plot(train_losses)
                 plt.plot(val_losses)
