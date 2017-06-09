@@ -36,6 +36,8 @@ full_links = [
     'http://kitti.is.tue.mpg.de/kitti/raw_data/2011_09_26_drive_0113/2011_09_26_drive_0113_sync.zip'
 ]
 
+alex_weights_link = 'http://www.cs.toronto.edu/~guerzhoy/tf_alexnet/bvlc_alexnet.npy'
+
 def call(cmd):
    print(cmd)
    process = subprocess.call(cmd, shell=True)
@@ -72,6 +74,8 @@ def main():
     options = vars(options)
 
     download(**options)
+    if not isfile('bvlc_alexnet.npy'):
+        call("wget {}".format(alex_weights_link))
 
 if __name__ == "__main__":
     main()
