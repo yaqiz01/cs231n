@@ -105,6 +105,22 @@ def alex_net(X, is_training):
         X = tf.layers.dropout(X, rate=FLAGS.dropout, training=is_training)
     return X
 
+def conv_helper(input, kernel, biases, padding="VALID", group=1):
+    '''From https://github.com/ethereon/caffe-tensorflow
+    '''
+    convolve = lambda i, k: tf.nn.conv2d(i, k, [1, 1, 1, 1], padding=padding)
+
+    if group==1:
+        conv = convolve(input, kernel)
+    else:
+        print("input is: ", input)
+        input_groups =  tf.split(input, group, 3)   #tf.split(3, group, input)
+        print("kernel is: ", kernel)
+        kernel_groups = tf.split(kernel, group, 3)  #tf.split(3, group, kernel)
+        output_groups = [convolve(i, k) for i,k in zip(input_groups, kernel_groups)]
+        conv = tf.concat(output_groups, 3)          #tf.concat(3, output_groups)
+    return tf.reshape(tf.nn.bias_add(conv, biases), [-1]+conv.get_shape().as_list()[1:])
+
 def alexnet_v2_arg_scope(weight_decay=0.0005):
   with slim.arg_scope([slim.conv2d, slim.fully_connected],
                       activation_fn=tf.nn.relu,
@@ -159,6 +175,7 @@ class ConvModel(object):
 
         # ==== set up training/updating procedure ====
         # implement learning rate annealing
+        self.pretrained_weights = np.load('bvlc_alexnet.npy')[()]
         self.session = tf.Session()
         self.options = options
         self.setup_placeholders(**options)
@@ -175,6 +192,38 @@ class ConvModel(object):
         self.X_placeholder = tf.placeholder(tp, [None, H, W, C])
         self.y_placeholder = tf.placeholder(tp, [None,3])
         self.is_training = tf.placeholder(tf.bool)
+
+    def alex_net_pretrained(self, X, is_training):
+        init = tf.contrib.layers.xavier_initializer()
+
+        with tf.variable_scope("conv_1"):
+            X = tf.layers.conv2d(X, 96, 11, strides=4, activation=tf.nn.relu, kernel_initializer=init)
+            X = tf.layers.max_pooling2d(X, 3, 2)
+        with tf.variable_scope("conv_2"):
+            conv2_W = tf.Variable(self.pretrained_weights['conv2'][0])
+            conv2_b = tf.Variable(self.pretrained_weights['conv2'][1])
+            X = conv_helper(X, conv2_W, conv2_b, group=2)
+            X = tf.layers.max_pooling2d(X, 3, 2)
+        with tf.variable_scope("conv_3"):
+            conv3_W = tf.Variable(self.pretrained_weights['conv3'][0])
+            conv3_b = tf.Variable(self.pretrained_weights['conv3'][1])
+            X = conv_helper(X, conv3_W, conv3_b, group=1)
+        with tf.variable_scope("conv_4"):
+            conv4_W = tf.Variable(self.pretrained_weights['conv4'][0])
+            conv4_b = tf.Variable(self.pretrained_weights['conv4'][1])
+            X = conv_helper(X, conv4_W, conv4_b, group=2)
+        with tf.variable_scope("conv_5"):
+            conv5_W = tf.Variable(self.pretrained_weights['conv5'][0])
+            conv5_b = tf.Variable(self.pretrained_weights['conv5'][1])
+            X = conv_helper(X, conv5_W, conv5_b, group=2)
+            X = tf.layers.max_pooling2d(X, 3, 2)
+        with tf.variable_scope("fc_6"):
+            X = tf.layers.conv2d(X, 4096, 5, activation=tf.nn.relu, kernel_initializer=init)
+            X = tf.layers.dropout(X, rate=FLAGS.dropout, training=is_training)
+        with tf.variable_scope("fc_7"):
+            X = tf.layers.conv2d(X, 4096, 1, activation=tf.nn.relu, kernel_initializer=init)
+            X = tf.layers.dropout(X, rate=FLAGS.dropout, training=is_training)
+        return X
 
     def setup_network(self, X, y, is_training):
         print("\n\n===== Setup Network ======\n\n")
@@ -207,6 +256,11 @@ class ConvModel(object):
                 alex_out = alexnet_v2(X, is_training)
                 flat_dim = np.product(alex_out.shape[1:]).value
                 conv_out = tf.reshape(alex_out, [-1, flat_dim])
+
+        elif self.options['convmode'] == 4:
+            alex_out = self.alex_net_pretrained(X, is_training)
+            flat_dim = np.product(alex_out.shape[1:]).value
+            conv_out = tf.reshape(alex_out, [-1, flat_dim])
 
         out_dim = np.product(y.shape[1:]).value
         affine3_out = tf.layers.dense(inputs=conv_out, units=out_dim, kernel_initializer=tf.contrib.layers.xavier_initializer())
