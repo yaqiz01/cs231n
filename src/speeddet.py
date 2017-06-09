@@ -143,22 +143,37 @@ def loadInputX(prev, cur, **options):
     path = options['path']
     fn = options['fn']
     speedmode = options['speedmode']
+    flowmode = options['flowmode']
+    rseg = options['rseg']
+    cseg = options['cseg']
     speedX = np.zeros((H,W,0))
     includeflow, includeobj, includeimg = lookup(speedmode)
     options['checkcache'] = False
     im = cur
     if includeflow:
-        if model=='linear':
-            flow = polarflow(prev, cur, **options)
-        elif model=='conv':
+        if flowmode==0:
             flow = getflow(prev, cur, **options)
-        speedX = np.concatenate((speedX,flow), axis=-1)
+            speedX = np.concatenate((speedX,flow), axis=-1)
+        elif flowmode==1:
+            flow = getflow(prev, cur, **options)
+            flow = polarflow(flow, **options)
+            speedX = np.concatenate((speedX,flow), axis=-1)
+        elif flowmode==2:
+            flow = getflow(prev, cur, **options)
+            flow = getAvgflow(flow, **options)
+            speedX = flow 
+        elif flowmode==3:
+            flow = getflow(prev, cur, **options)
+            flow = getAvgflow(flow, **options)
+            flow = polarflow(flow, **options)
+            speedX = flow 
     if includeobj:
         objchannel = getObjChannel(im, **options)
         speedX = np.concatenate((speedX,objchannel), axis=-1)
     if includeimg:
         speedX = np.concatenate((speedX,im), axis=-1)
-    if speedX.shape != (H,W,C):
+    if (speedX.shape != (H,W,C) and flowmode in [0, 1]) or \
+        (speedX.shape != (rseg,cseg,C) and flowmode in [2, 3]):
         raise Exception('data input shape={} not equals to expected shape!{}'.format(
             (H,W,C), speedX.shape))
     return speedX
@@ -166,6 +181,9 @@ def loadInputX(prev, cur, **options):
 def loadData(framePaths, **options):
     H,W,C = options['inputshape']
     speedmode = options['speedmode']
+    flowmode = options['flowmode']
+    rseg = options['rseg']
+    cseg = options['cseg']
     speedXs = []
     path = dirname(framePaths[0])
     headers = loadHeader('{0}/../oxts'.format(path))
@@ -185,24 +203,18 @@ def loadData(framePaths, **options):
         speedXs.append(speedX)
         # print('speedmode={} speedX.shape={}'.format(speedmode, np.array(speedX).shape))
         loadLabels(fn, headers, labels, '{0}/../oxts'.format(path))
-    speedXs = np.reshape(np.array(speedXs), (-1, H,W,C))
+    if flowmode in [0,1]:
+        speedXs = np.reshape(np.array(speedXs), (-1, H,W,C))
+    elif flowmode in [2,3]:
+        speedXs = np.reshape(np.array(speedXs), (-1, rseg,cseg,C))
     vf = np.reshape(labels['vf'], (-1, 1))
     wu = np.reshape(labels['wu'], (-1, 1))
     af = np.reshape(labels['af'], (-1, 1))
     speedYs = np.hstack((vf, wu, af))
     return ([speedXs, speedYs])
 
-def polarflow(prev, cur, **options):
-    flow = getflow(prev, cur, **options)
-    avgflow = getAvgflow(flow, **options)
-
-    # cplx = avgflow[:,:,0] + avgflow[:,:,1] * 1j
-    # cplx = cplx.flatten()
-    # mag = np.absolute(cplx)
-    # ang = np.angle(cplx)
-    # return mag.tolist() + ang.tolist()
-
-    cplx = avgflow[:,:,0] + avgflow[:,:,1] * 1j
+def polarflow(flow, **options):
+    cplx = flow[:,:,0] + flow[:,:,1] * 1j
     H,W = cplx.shape
     mag = np.reshape(np.absolute(cplx), (H,W,1))
     ang = np.reshape(np.angle(cplx), (H,W,1))

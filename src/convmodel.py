@@ -11,7 +11,7 @@ from speeddet import *
 from util import get_minibatches, Progbar
 from play import *
 
-tf.app.flags.DEFINE_float("learning_rate", 0.001, "Learning rate.")
+tf.app.flags.DEFINE_float("learning_rate", 0.0001, "Learning rate.")
 tf.app.flags.DEFINE_float("dropout", 0.5, "Dropout rate.")
 tf.app.flags.DEFINE_integer("epochs", 15, "Number of epochs to train.")
 tf.app.flags.DEFINE_integer("batch_size", 32, "Batch size to use during training.")
@@ -19,6 +19,7 @@ tf.app.flags.DEFINE_integer("decay_step", 100, "Number of steps between decays."
 tf.app.flags.DEFINE_float("decay_rate", 0.95, "Decay rate.")
 tf.app.flags.DEFINE_integer("print_every", 100, "How many iterations to do per print.")
 tf.app.flags.DEFINE_string("weight_init", "xavier", "tf method for weight initialization")
+tf.app.flags.DEFINE_string("step_optimize", False, "whether to optimize separately")
 FLAGS = tf.app.flags.FLAGS
 FLAGS._parse_flags()
 flagDict = FLAGS.__dict__['__flags']
@@ -187,9 +188,15 @@ class ConvModel(object):
         self.session.close()
 
     def setup_placeholders(self, **options):
-        tp = tf.float32
         H,W,C = options['inputshape']
-        self.X_placeholder = tf.placeholder(tp, [None, H, W, C])
+        flowmode = options['flowmode']
+        rseg = options['rseg']
+        cseg = options['cseg']
+        tp = tf.float32
+        if flowmode in [0,1]:
+            self.X_placeholder = tf.placeholder(tp, [None, H, W, C])
+        elif flowmode in [2,3]:
+            self.X_placeholder = tf.placeholder(tp, [None, rseg, cseg, C])
         self.y_placeholder = tf.placeholder(tp, [None,3])
         self.is_training = tf.placeholder(tf.bool)
 
@@ -290,6 +297,10 @@ class ConvModel(object):
         :return:
         """
         self.loss = tf.nn.l2_loss(self.pred - self.y_placeholder)
+        if FLAGS.step_optimize :
+            self.loss1 = tf.slice(self.pred - self.y_placeholder, [0,0], [-1, 1])
+            self.loss2 = tf.slice(self.pred - self.y_placeholder, [0,1], [-1, 1])
+            self.loss3 = tf.slice(self.pred - self.y_placeholder, [0,2], [-1, 1])
 
     def create_feed_dict(self, X, y, is_training=False):
         """
@@ -316,11 +327,14 @@ class ConvModel(object):
         # construct feed_dict
         input_feed = self.create_feed_dict(X_train, y_train, True)
 
-        output_feed = [self.train_step, self.loss, self.lr, self.global_step]
-
-        _, loss, lr, gs = self.session.run(output_feed, feed_dict=input_feed)
-
-        return loss, lr, gs
+        if FLAGS.step_optimize :
+            output_feed = [self.train_step1, self.train_step2, self.train_step3, self.loss, self.lr, self.global_step]
+            _, _, _, loss, lr, gs = self.session.run(output_feed, feed_dict=input_feed)
+            return loss, lr, gs
+        else:
+            output_feed = [self.train_step, self.loss, self.lr, self.global_step]
+            _, loss, lr, gs = self.session.run(output_feed, feed_dict=input_feed)
+            return loss, lr, gs
 
     def get_model_path(self):
         return SCRATCH_PATH + ("convmodel_speedmode_{}_convmode_{}/".format(self.options['speedmode'], self.options['convmode']))
@@ -427,9 +441,21 @@ class ConvModel(object):
             self.global_step = tf.Variable(0, trainable=False)
             lr = tf.train.exponential_decay(FLAGS.learning_rate, self.global_step, FLAGS.decay_step, FLAGS.decay_rate, staircase=True)
             self.lr = lr
-            optimizer = tf.train.AdamOptimizer(self.lr)
-            grad_and_vars = optimizer.compute_gradients(self.loss)
-            self.train_step = optimizer.apply_gradients(grad_and_vars, global_step=self.global_step)
+            if FLAGS.step_optimize :
+                optimizer1 = tf.train.AdamOptimizer(self.lr)
+                optimizer2 = tf.train.AdamOptimizer(self.lr)
+                optimizer3 = tf.train.AdamOptimizer(self.lr)
+
+                grad_and_vars1 = optimizer1.compute_gradients(self.loss1)
+                self.train_step1 = optimizer1.apply_gradients(grad_and_vars1, global_step=self.global_step)
+                grad_and_vars2 = optimizer2.compute_gradients(self.loss2)
+                self.train_step2 = optimizer2.apply_gradients(grad_and_vars2, global_step=self.global_step)
+                grad_and_vars3 = optimizer2.compute_gradients(self.loss3)
+                self.train_step3 = optimizer2.apply_gradients(grad_and_vars3, global_step=self.global_step)
+            else :
+                optimizer = tf.train.AdamOptimizer(self.lr)
+                grad_and_vars = optimizer.compute_gradients(self.loss)
+                self.train_step = optimizer.apply_gradients(grad_and_vars, global_step=self.global_step)
 
         self.session.run(tf.global_variables_initializer())
         # y_train = np.reshape(vly_train, (-1, 1))

@@ -4,6 +4,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import argparse
 from matplotlib.font_manager import FontProperties
+from functools import partial
 
 def parse(**options):
     path = options['path']
@@ -13,6 +14,7 @@ def parse(**options):
     logs = [f for f in listdir(path) if isfile(join(path, f)) and f.endswith('.txt')]
 
     for log in logs:
+        print('Parsing {}'.format(log))
         with open(join(path, log), 'r') as f:
             results[log] = {}
             results[log]['epoch'] = []
@@ -21,7 +23,7 @@ def parse(**options):
             for line in f:
                 if 'Configuration' in line:
                     key, val = line.split(' ')[1].split('=')
-                    results[log][key] = val
+                    results[log][key] = val.replace('\n', '')
                 if 'Error' in line or 'Fail' in line or 'Interrupt' in line: # broken log
                     print('broken log {}'.format(log))
                     results.pop(log, None)
@@ -43,36 +45,71 @@ def lookup(d):
     elif int(d['convmode'])==1: label += 'resnet'
     elif int(d['convmode'])==2: label += 'alexnet'
     label += '_lr{}'.format(d['learning_rate'])
-    label += '_'
-    label += '#{}'.format(d['num_frames'])
+    # label += '_'
+    # label += '#{}'.format(d['num_frames'])
 
     return label
 
+def linestyle(d):
+    if int(d['convmode'])==0: return '--'
+    elif int(d['convmode'])==1: return '-.'
+    elif int(d['convmode'])==2: return '-'
+
+def color(d):
+    if int(d['speedmode'])==0: return 'r' 
+    elif int(d['speedmode'])==1: return 'g'
+    elif int(d['speedmode'])==2: return 'b'
+    elif int(d['speedmode'])==3: return 'royalblue'
+    elif int(d['speedmode'])==4: return 'c'
+
+def to_lookup(log):
+    return lookup(results[log])
+
+def to_key(log, key):
+    return results[log][key]
+
+def sort_logs(logs, key=None):
+    if key is None:
+        return sorted(logs, key = to_lookup)
+    else:
+        return sorted(logs, key = partial(to_key, key=key))
+
 def plot_all_loss(**options):
     logscale = options['logscale']
-    fig, (ax1, ax2) = plt.subplots(1,2, figsize=(12,3))
+    fig, (ax1, ax2) = plt.subplots(1,2, figsize=(9,2.5), sharey=True)
     handles = []
     for log in logs:
+        ls = linestyle(results[log])
+        cl = color(results[log])
         label = lookup(results[log])
         if logscale:
-            handles += (ax1.semilogy(results[log]['epoch'], results[log]['train_mse'], label=label))
+            handles += (ax1.semilogy(results[log]['epoch'], results[log]['train_mse'], label=label,
+                color=cl, linestyle=ls))
         else:
-            handles += (ax1.plot(results[log]['epoch'], results[log]['train_mse'], label=label))
+            handles += (ax1.plot(results[log]['epoch'], results[log]['train_mse'], label=label,
+                color=cl, linestyle=ls))
     ax1.set_title('train_loss')
     ax1.grid(True)
     ax1.set_xlabel('epoch')
     handles = []
-    for log in logs:
+    slogs = sort_logs(logs)
+    for log in slogs:
+        ls = linestyle(results[log])
+        cl = color(results[log])
         label = lookup(results[log])
         if logscale:
-            handles += (ax2.semilogy(results[log]['epoch'], results[log]['val_mse'], label=label))
+            handles += (ax2.semilogy(results[log]['epoch'], results[log]['val_mse'], label=label,
+                color=cl, linestyle=ls))
         else:
-            handles += (ax2.plot(results[log]['epoch'], results[log]['val_mse'], label=label))
+            handles += (ax2.plot(results[log]['epoch'], results[log]['val_mse'], label=label,
+                color=cl, linestyle=ls))
+    ax2.set_ylim([0,max(results[log]['val_mse'])+20])
     ax2.set_title('val_loss')
     ax2.grid(True)
     ax2.set_xlabel('epoch')
     ax2.legend(handles=handles, loc='center left', bbox_to_anchor=(1, 0.5))
-    plt.gcf().subplots_adjust(bottom=0.15, top=0.85, right=0.75)
+    fig.tight_layout()
+    fig.subplots_adjust(bottom=0.2, top=0.85, right=0.7, left=0.05)
     plt.savefig('{}/loss_all.png'.format(options['path']))
 
 def plot_sep_loss(**options):
@@ -94,6 +131,20 @@ def plot_sep_loss(**options):
         plt.gcf().subplots_adjust(bottom=0.15, top=0.75)
         plt.savefig('{}/loss_{}.png'.format(options['path'], log.replace('result_','').replace('.txt','')))
 
+def show():
+    print('\nShowing configuration ...')
+    for i, log in enumerate(sort_logs(logs, 'convmode')):
+        info = log
+        info += ' train_mse={}'.format(results[log]['train_mse'][-1])
+        info += ' val_mse={}'.format(results[log]['val_mse'][-1])
+        info += ' {}'.format(lookup(results[log]))
+        # if 'weight_init' in results[log]:
+            # info += ' {}'.format(results[log]['weight_init'])
+        k='decay_rate'; info += ' {}={}'.format(k, results[log][k])
+        k='decay_step'; info += ' {}={}'.format(k, results[log][k])
+        k='dropout'; info += ' {}={}'.format(k, results[log][k])
+        print(info)
+
 def main():
     usage = "Usage: plot [options --path]"
     parser = argparse.ArgumentParser(description='Visualize a sequence of images as video')
@@ -101,12 +152,18 @@ def main():
             help='Specify path for result logs')
     parser.add_argument('--logscale', dest='logscale', action='store_true',default=False,
         help='Use log scale')
+    parser.add_argument('--show', dest='show', action='store_true',default=False,
+        help='Show config')
     (options, args) = parser.parse_known_args()
 
     options = vars(options)
     parse(**options)
-    plot_all_loss(**options)
-    plot_sep_loss(**options)
+
+    if options['show']:
+        show()
+    else:
+        plot_all_loss(**options)
+        # plot_sep_loss(**options)
 
 if __name__ == "__main__":
     main()

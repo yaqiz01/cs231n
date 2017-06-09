@@ -55,6 +55,10 @@ def restoreModel(**options):
     modelname = options['model']
     speedmode = options['speedmode']
     mode = options['mode']
+    path = options['path']
+    fn = '0000000001.png'
+    im = cv2.imread(join(path, fn), cv2.IMREAD_COLOR)
+    options = setInputShape(im, **options)
     if mode == 'all':
         if modelname=='conv':
             from convmodel import ConvModel
@@ -84,8 +88,6 @@ def play(framePaths, **options):
     if mode in ['trainspeed', 'all']:
         im = cv2.imread(join(path, files[0]), cv2.IMREAD_COLOR)
         options = setInputShape(im, **options)
-    if mode in ['all']:
-        restored_model = restoreModel(**options)
     labels = dict(vf=[], wu=[], af=[])
     img = None
     icmp = None
@@ -225,6 +227,16 @@ def play(framePaths, **options):
             imgax.clear()
     return options
 
+def demo(**options):
+    options['path'] = '/Users/Yaqi/ee368/kitti/2011_09_26-3/data'
+    options['startframe'] = 80
+    options['endframe'] = 125
+    play([], **options)
+    options['path'] = '/Users/Yaqi/ee368/kitti/2011_09_26-1/data'
+    options['startframe'] = 0
+    options['endframe'] = 30
+    play([], **options)
+
 def trainModel(**options):
     sys.stdout.flush()
     framePaths = []
@@ -239,8 +251,8 @@ def trainModel(**options):
 def main():
     usage = "Usage: play [options --path]"
     parser = argparse.ArgumentParser(description='Visualize a sequence of images as video')
-    parser.add_argument('--demo', dest='demo', nargs='?', default=1, type=int,
-            help='Demo number to run. If --path is set, this option is ignored')
+    parser.add_argument('--demo', dest='demo', action='store_true',default=False,
+        help='Demo mode')
     parser.add_argument('--path', dest='path', action='store', default='',
             help='Specify path for the image files')
     parser.add_argument('--delay', dest='delay', nargs='?', default=0.01, type=float,
@@ -253,9 +265,9 @@ def main():
             help='Number of frame to play, -1 for all frames')
     parser.add_argument('--mode', dest='mode', action='store', default='roadsign',
             help='Supporting mode: all, loadmatch, roadsign, detlight, flow, test, trainspeed, objdet')
-    parser.add_argument('--rseg', dest='rseg', nargs='?', default=3, type=int,
+    parser.add_argument('--rseg', dest='rseg', nargs='?', default=100, type=int,
             help='Number of vertical segmentation in computing averaged flow')
-    parser.add_argument('--cseg', dest='cseg', nargs='?', default=11, type=int,
+    parser.add_argument('--cseg', dest='cseg', nargs='?', default=300, type=int,
             help='Number of horizontal segmentation in computing averaged flow')
     parser.add_argument('--no-sign', dest='detsign', action='store_false',default=True,
         help='Disable sign detection')
@@ -275,6 +287,9 @@ def main():
     parser.add_argument('--speedmode', dest='speedmode', nargs='?', default=0, type=int,
             help='input mode for speed detection: 0 - flow only, 1 - flow + objmask, 2 - flow + \
             img, 3 - flow + objmask + img, 4 - img only')
+    parser.add_argument('--flowmode', dest='flowmode', nargs='?', default=0, type=int,
+            help='flow mode for speed detection: 0 - original flow, 1 - polarflow, 2 - avgflow, \
+                    3 - polar avgflow ')
     parser.add_argument('--cpu', dest='cpu', action='store_true',default=False,
         help='use 1 cpu to trainspeed')
     parser.add_argument('--pcttrain', dest='pcttrain', nargs='?', default=0.8, type=float,
@@ -282,9 +297,18 @@ def main():
     (options, args) = parser.parse_known_args()
 
     if (options.path==''):
-        options.path = '{0}2011_09_26-{1}/data'.format(KITTI_PATH, options.demo)
+        options.path = '{0}2011_09_26-{1}/data'.format(KITTI_PATH, 1)
 
     options = vars(options)
+    if (options['demo']):
+        options['mode'] = 'all'
+    if options['mode'] in ['all']:
+        global restored_model
+        restored_model = restoreModel(**options)
+    if (options['demo']):
+        while True:
+            demo(**options)
+        return
 
     if (options['mode']=='trainspeed'):
         for k in options:
