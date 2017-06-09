@@ -22,16 +22,18 @@ def parse(**options):
             results[log]['val_mse'] = []
             for line in f:
                 if 'Configuration' in line:
-                    key, val = line.split(' ')[1].split('=')
+                    key, val = line.split('Configuration')[1].split(' ')[1].split('=')
                     results[log][key] = val.replace('\n', '')
                 if 'Error' in line or 'Fail' in line or 'Interrupt' in line: # broken log
-                    print('broken log {}'.format(log))
                     results.pop(log, None)
                     continue
                 if 'Overall train mse' in line:
-                    results[log]['epoch'].append(int(line.split('Epoch ')[1].split(',')[0]))
-                    results[log]['train_mse'].append(float(line.split('Overall train mse = ')[1].split(',')[0]))
-                    results[log]['val_mse'].append(float(line.split('Overall val mse = ')[1]))
+                    try:
+                      results[log]['epoch'].append(int(line.split('Epoch ')[1].split(',')[0]))
+                      results[log]['train_mse'].append(float(line.split('Overall train mse = ')[1].split(',')[0]))
+                      results[log]['val_mse'].append(float(line.split('Overall val mse = ')[1]))
+                    except:
+                      continue
 
 def lookup(d):
     label = ''
@@ -135,8 +137,12 @@ def show():
     print('\nShowing configuration ...')
     for i, log in enumerate(sort_logs(logs, 'convmode')):
         info = log
-        info += ' train_mse={}'.format(results[log]['train_mse'][-1])
-        info += ' val_mse={}'.format(results[log]['val_mse'][-1])
+        if len(results[log]['epoch']) > 0:
+            info += ' epoch={}'.format(results[log]['epoch'][-1])
+        if len(results[log]['train_mse']) > 0:
+            info += ' train_mse={}'.format(results[log]['train_mse'][-1])
+        if len(results[log]['val_mse']) > 0:
+            info += ' val_mse={}'.format(results[log]['val_mse'][-1])
         info += ' {}'.format(lookup(results[log]))
         # if 'weight_init' in results[log]:
             # info += ' {}'.format(results[log]['weight_init'])
