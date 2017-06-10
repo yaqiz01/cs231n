@@ -24,7 +24,7 @@ def parse(**options):
                 if 'Configuration' in line:
                     key, val = line.split('Configuration')[1].split(' ')[1].split('=')
                     results[log][key] = val.replace('\n', '')
-                if 'Error' in line or 'Fail' in line or 'Interrupt' in line: # broken log
+                if 'Error' in line or 'Fail' in line or 'Interrupt' in line or 'Killed' in line: # broken log
                     results.pop(log, None)
                     continue
                 if 'Overall train mse' in line:
@@ -133,23 +133,36 @@ def plot_sep_loss(**options):
         plt.gcf().subplots_adjust(bottom=0.15, top=0.75)
         plt.savefig('{}/loss_{}.png'.format(options['path'], log.replace('result_','').replace('.txt','')))
 
+def printc(txt, c):
+    if c=="g":
+        print('\033[92m' + txt + '\033[0m')
+
 def show():
     print('\nShowing configuration ...')
     for i, log in enumerate(sort_logs(logs, 'convmode')):
         info = log
+        val_mse = None
         if len(results[log]['epoch']) > 0:
             info += ' epoch={}'.format(results[log]['epoch'][-1])
         if len(results[log]['train_mse']) > 0:
             info += ' train_mse={}'.format(results[log]['train_mse'][-1])
         if len(results[log]['val_mse']) > 0:
-            info += ' val_mse={}'.format(results[log]['val_mse'][-1])
+            val_mse = results[log]['val_mse'][-1]
+            info += ' val_mse={}'.format(val_mse)
         info += ' {}'.format(lookup(results[log]))
         # if 'weight_init' in results[log]:
             # info += ' {}'.format(results[log]['weight_init'])
         k='decay_rate'; info += ' {}={}'.format(k, results[log][k])
         k='decay_step'; info += ' {}={}'.format(k, results[log][k])
         k='dropout'; info += ' {}={}'.format(k, results[log][k])
-        print(info)
+        if 'flowmode' in results[log]:
+            k='flowmode'; info += ' {}={}'.format(k, results[log][k])
+        k='rseg'; info += ' {}={}'.format(k, results[log][k])
+        k='cseg'; info += ' {}={}'.format(k, results[log][k])
+        if val_mse is not None and val_mse < 3:
+            printc(info, 'g')
+        else:
+            print(info)
 
 def main():
     usage = "Usage: plot [options --path]"
