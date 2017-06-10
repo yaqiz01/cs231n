@@ -137,7 +137,8 @@ def printc(txt, c):
     if c=="g":
         print('\033[92m' + txt + '\033[0m')
 
-def show():
+def show(**options):
+    toshow = options['toshow']
     print('\nShowing configuration ...')
     for i, log in enumerate(sort_logs(logs, 'convmode')):
         info = log
@@ -159,7 +160,20 @@ def show():
             k='flowmode'; info += ' {}={}'.format(k, results[log][k])
         k='rseg'; info += ' {}={}'.format(k, results[log][k])
         k='cseg'; info += ' {}={}'.format(k, results[log][k])
-        if val_mse is not None and val_mse < 3:
+        cond = False
+        if '=' in toshow:
+            key, val = toshow.split('=')
+            if key in ['val_mse', 'train_mse', 'epoch']:
+                cond = key in results[log] and float(results[log][key][-1]) == float(val)
+            else:
+                cond = key in results[log] and float(results[log][key]) == float(val)
+        elif '<' in toshow:
+            key, val = toshow.split('<')
+            if key in ['val_mse', 'train_mse', 'epoch']:
+                cond = key in results[log] and float(results[log][key][-1]) < float(val)
+            else:
+                cond = key in results[log] and float(results[log][key]) < float(val)
+        if cond:
             printc(info, 'g')
         else:
             print(info)
@@ -171,15 +185,15 @@ def main():
             help='Specify path for result logs')
     parser.add_argument('--logscale', dest='logscale', action='store_true',default=False,
         help='Use log scale')
-    parser.add_argument('--show', dest='show', action='store_true',default=False,
-        help='Show config')
+    parser.add_argument('--show', dest='toshow', action='store', default='None',
+            help='Specify condition to highlight. e.g. --show "val_mse<3" ')
     (options, args) = parser.parse_known_args()
 
     options = vars(options)
     parse(**options)
 
-    if options['show']:
-        show()
+    if options['toshow'] != 'None':
+        show(**options)
     else:
         plot_all_loss(**options)
         # plot_sep_loss(**options)
