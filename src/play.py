@@ -37,7 +37,7 @@ def roadSignMatching(frame, org, sn):
 
 def setInputShape(im, **options):
     H,W,_ = im.shape
-    speedmode = options['speedmode'] 
+    speedmode = options['speedmode']
     if speedmode==0:
         C = 2 # flow
     elif speedmode==1:
@@ -48,7 +48,7 @@ def setInputShape(im, **options):
         C = 6 # flow + objmask + rgb
     elif speedmode==4:
         C = 3 # rgb
-    options['inputshape'] = (H,W,C) 
+    options['inputshape'] = (H,W,C)
     return options
 
 def restoreModel(**options):
@@ -217,7 +217,7 @@ def play(framePaths, **options):
             img = imgax.imshow(im)
         else:
             img = imgax.imshow(im)
-        
+
         if mode in ['objdet', 'all'] and imgax is not None:
             drawObj(imgax, scores, boxes, **options)
 
@@ -284,7 +284,7 @@ def main():
     parser.add_argument('--sample-every', dest='sample_every', nargs='?', default=3, type=int,
             help='Sample every <#> of frames')
     parser.add_argument('--convmode', dest='convmode', nargs='?', default=0, type=int,
-            help='cnn network. 0 - baseline, 1 - resnet, 2 - alexnet')
+            help='cnn network. 0 - baseline, 1 - resnet, 2 - alexnet, 4 - alexnet-pretrained')
     parser.add_argument('--speedmode', dest='speedmode', nargs='?', default=0, type=int,
             help='input mode for speed detection: 0 - flow only, 1 - flow + objmask, 2 - flow + \
             img, 3 - flow + objmask + img, 4 - img only')
