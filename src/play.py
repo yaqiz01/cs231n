@@ -238,6 +238,7 @@ def demo(**options):
     play([], **options)
 
 def trainModel(**options):
+    print('Configuration: pid={}'.format(os.getpid()))
     sys.stdout.flush()
     framePaths = []
     dirs = [join(KITTI_PATH, d) for d in listdir(KITTI_PATH) if isdir(join(KITTI_PATH, d))]
