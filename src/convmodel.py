@@ -11,7 +11,7 @@ from speeddet import *
 from util import get_minibatches, Progbar
 from play import *
 
-tf.app.flags.DEFINE_float("learning_rate", 0.0001, "Learning rate.")
+tf.app.flags.DEFINE_float("learning_rate", 0.001, "Learning rate.")
 tf.app.flags.DEFINE_float("dropout", 0.5, "Dropout rate.")
 tf.app.flags.DEFINE_integer("epochs", 15, "Number of epochs to train.")
 tf.app.flags.DEFINE_integer("batch_size", 32, "Batch size to use during training.")
@@ -171,15 +171,14 @@ class ConvModel(object):
         self.session.close()
 
     def setup_placeholders(self, **options):
-        H,W,C = options['inputshape']
         flowmode = options['flowmode']
         rseg = options['rseg']
         cseg = options['cseg']
         tp = tf.float32
-        if flowmode in [0,1]:
-            self.X_placeholder = tf.placeholder(tp, [None, H, W, C])
-        elif flowmode in [2,3]:
-            self.X_placeholder = tf.placeholder(tp, [None, rseg, cseg, C])
+        H,W,C = options['inputshape']
+        if flowmode in [2,3]:
+            H = rseg; W = cseg;
+        self.X_placeholder = tf.placeholder(tp, [None, H, W, C])
         self.y_placeholder = tf.placeholder(tp, [None,3])
         self.is_training = tf.placeholder(tf.bool)
 
