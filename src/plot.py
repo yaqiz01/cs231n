@@ -175,6 +175,9 @@ def show(**options):
                     cond &= key in results[log] and float(results[log][key][-1]) < float(val)
                 else:
                     cond &= key in results[log] and float(results[log][key]) < float(val)
+            else:
+                if toshow in results[log] and toshow not in info:
+                    k=toshow; info += ' {}={}'.format(k, results[log][k])
         if cond and len(toshows)>0:
             printc(info, 'g')
         else:

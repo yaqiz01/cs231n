@@ -176,7 +176,8 @@ class ConvModel(object):
 
         # ==== set up training/updating procedure ====
         # implement learning rate annealing
-        self.pretrained_weights = np.load('bvlc_alexnet.npy')[()]
+        if options['convmode'] == 4:
+	    self.pretrained_weights = np.load('bvlc_alexnet.npy')[()]
         self.session = tf.Session()
         self.options = options
         self.setup_placeholders(**options)
