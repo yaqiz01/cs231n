@@ -12,10 +12,15 @@ mkdir -p $RESULT_PATH
 	#$RESULT_PATH/result_$(date +%Y%m%d%H%M%S).txt
 #python play.py --mode trainspeed --model conv --convmode 1 --speedmode 0 &> \
 	#$RESULT_PATH/result_$(date +%Y%m%d%H%M%S).txt
-python play.py --mode trainspeed --model conv --convmode 1 --speedmode 0 --dropout=0.6  --flowmode=2 rseg=50 cseg=100 &> $RESULT_PATH/result_$(date +%Y%m%d%H%M%S).txt &
+#python play.py --mode trainspeed --model conv --convmode 1 --speedmode 0 --dropout=0.6  --flowmode=2 --rseg=50 --cseg=100 &> $RESULT_PATH/result_$(date +%Y%m%d%H%M%S).txt &
 #python play.py --mode trainspeed --model conv --speedmode 0 --convmode 2 &> \
   #$RESULT_PATH/result_$(date +%Y%m%d%H%M%S).txt
 #python play.py --mode trainspeed --model conv --speedmode 2 &> \
   #$RESULT_PATH/result_$(date +%Y%m%d%H%M%S).txt
 #python play.py --mode trainspeed --model conv --speedmode 2 --convmode 2 &> \
   #$RESULT_PATH/result_$(date +%Y%m%d%H%M%S).txt
+
+python play.py --mode trainspeed --model conv --convmode 0 --speedmode=0 --dropout=0.5 --learning_rate=0.0005 --flowmode=2 --rseg 100 --cseg 300  &> $RESULT_PATH/result_$(date +%Y%m%d%H%M%S).txt
+python play.py --mode trainspeed --model conv --convmode 0 --speedmode=0 --dropout=0.5 --learning_rate=0.001 --flowmode=2 --rseg 100 --cseg 300  &> $RESULT_PATH/result_$(date +%Y%m%d%H%M%S).txt
+python play.py --mode trainspeed --model conv --convmode 0 --speedmode=0 --dropout=0.5 --learning_rate=0.05 --flowmode=2 --rseg 100 --cseg 300  &> $RESULT_PATH/result_$(date +%Y%m%d%H%M%S).txt
+python play.py --mode trainspeed --model conv --convmode 0 --speedmode=0 --dropout=0.5 --learning_rate=0.01 --flowmode=2 --rseg 100 --cseg 300  &> $RESULT_PATH/result_$(date +%Y%m%d%H%M%S).txt
