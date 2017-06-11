@@ -239,8 +239,9 @@ def play(framePaths, **options):
         if imgax is not None:
             imgax.clear()
 
-    for k in test_mses:
-        print('Overall averaged test mse {}: {}'.format(k, np.sum(test_mses[k])/len(test_mses[k])))
+    if mode in ['testspeed', 'all']:
+        for k in test_mses:
+            print('Overall averaged test mse {}: {}'.format(k, np.sum(test_mses[k])/len(test_mses[k])))
     return options
 
 def demo(**options):
