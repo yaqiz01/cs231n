@@ -76,6 +76,9 @@ def play(framePaths, **options):
     includeflow, includeobj, includeimg = lookup(speedmode)
 
     path = options['path']
+    if mode in ['testspeed']:
+        path = options['testpath']
+        test_mses = {}
 
     print('Playing video {}'.format(path))
     files = [f for f in listdir(path) if isfile(join(path, f)) and f.endswith('.png')]
@@ -87,8 +90,6 @@ def play(framePaths, **options):
         headers = loadHeader('{0}/../oxts'.format(path))
         im = cv2.imread(join(path, files[0]), cv2.IMREAD_COLOR)
         options = setInputShape(im, **options)
-    if mode in ['testspeed']:
-        test_mses = {}
     labels = dict(vf=[], wu=[], af=[])
     img = None
     icmp = None
@@ -315,7 +316,7 @@ def main():
     if (options.path==''):
         options.path = '{0}2011_09_26-{1}/data'.format(KITTI_PATH, 1)
     if (options.testpath==''):
-        options.testpath = '{0}2011_09_26-{1}/data'.format(KITTI_PATH, 1)
+        options.testpath = '{0}2011_09_26{1}/data'.format(KITTI_PATH, '_drive_0117_sync')
 
     options = vars(options)
     if (options['demo']):

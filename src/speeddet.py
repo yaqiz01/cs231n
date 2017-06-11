@@ -163,7 +163,7 @@ def loadImg(rgb, **options):
     flowmode = options['flowmode']
     if flowmode in [2,3]:
         rgb = getAvgChannel(rgb, **options)
-    return rgb 
+    return rgb
 
 def loadInputX(prev, cur, **options):
     H,W,C = options['inputshape']
@@ -186,7 +186,7 @@ def loadInputX(prev, cur, **options):
         objchannel = loadObj(cur, **options)
         speedX = np.concatenate((speedX,objchannel), axis=-1)
     if includeimg:
-        rgb = loadImg(im, **options)
+        rgb = loadImg(cur, **options)
         speedX = np.concatenate((speedX, rgb), axis=-1)
     if (speedX.shape != (H,W,C)):
         raise Exception('data input shape={} not equals to expected shape!{}'.format(
@@ -259,7 +259,7 @@ def predSpeed(im, prev, cur, labels, restored_model, **options):
         if mode=='all':
             gtwu = np.rad2deg(gtwu)
         res = dict(vf=(vf, gtvf), wu=(wu, gtwu), af=(af, gtaf))
-    return im, res 
+    return im, res
 
 def trainSpeed(frameFns, **options):
     from convmodel import ConvModel
