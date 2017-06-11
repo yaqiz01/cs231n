@@ -56,6 +56,8 @@ def restoreModel(**options):
     speedmode = options['speedmode']
     mode = options['mode']
     path = options['path']
+    if mode in ['testspeed']:
+        path = options['testpath']
     fn = '0000000001.png'
     im = cv2.imread(join(path, fn), cv2.IMREAD_COLOR)
     options = setInputShape(im, **options)
@@ -94,7 +96,7 @@ def play(framePaths, **options):
     img = None
     icmp = None
     porg = None
-    if (mode not in ['trainspeed']):
+    if (mode not in ['trainspeed', 'testspeed']):
       plt.figure(dpi=140)
     for i, impath in enumerate(files):
         if mode in ['trainspeed']:
