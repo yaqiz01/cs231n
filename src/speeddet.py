@@ -186,7 +186,7 @@ def loadInputX(prev, cur, **options):
         objchannel = loadObj(cur, **options)
         speedX = np.concatenate((speedX,objchannel), axis=-1)
     if includeimg:
-        rgb = loadImg(cur, **options)
+        rgb = loadImg(im, **options)
         speedX = np.concatenate((speedX, rgb), axis=-1)
     if (speedX.shape != (H,W,C)):
         raise Exception('data input shape={} not equals to expected shape!{}'.format(
@@ -236,6 +236,7 @@ def polarflow(flow, **options):
     return np.concatenate((mag,ang), axis=-1)
 
 def predSpeed(im, prev, cur, labels, restored_model, **options):
+    mode = options['mode']
     path = options['path']
     model = options['model']
     speedmode = options['speedmode']
@@ -250,10 +251,13 @@ def predSpeed(im, prev, cur, labels, restored_model, **options):
         res = dict(vf=(vf, gtvf), wu=(wu, gtwu))
     elif model=='conv':
         vf, wu, af = restored_model.test(X_test)
-        wu = np.rad2deg(wu)
         gtvf = labels['vf'][-1]
-        gtwu = np.rad2deg(labels['wu'][-1])
+        gtwu = labels['wu'][-1]
         gtaf = labels['af'][-1]
+        if mode=='all':
+            wu = np.rad2deg(wu)
+        if mode=='all':
+            gtwu = np.rad2deg(gtwu)
         res = dict(vf=(vf, gtvf), wu=(wu, gtwu), af=(af, gtaf))
     return im, res 
 
