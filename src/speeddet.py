@@ -68,7 +68,7 @@ def drawAvgflow(img, avgflow):
 def detflow(frame, prev, cur, **options):
     flowmode = options['flowmode']
     flow = getflow(prev, cur, **options)
-    avgflow = getAvgflow(flow, **options)
+    avgflow = getAvgChannel(flow, **options)
     if flowmode == 'allflow':
         frame = drawflow(frame, flow)
     elif flowmode == 'avgflow':
@@ -105,23 +105,22 @@ def getflow(prev, cur, **options):
         pickle.dump(flow , open(flow_path, "wb"))
     return flow
 
-def getAvgflow(flow, **options):
+def getAvgChannel(channel, **options):
     rseg = options['rseg']
     cseg = options['cseg']
-    h, w = flow.shape[:2]
+    h, w = channel.shape[:2]
     rstride = h / rseg
     cstride = w / cseg
-    # flow = gray
-    avgflow = np.ndarray((rseg, cseg, 2), dtype=flow.dtype)
+    avg = np.ndarray((rseg, cseg, channel.shape[2]), dtype=channel.dtype)
     for ir in range(0, rseg):
         rstart = ir*rstride
         rend = min(rstart+rstride, h)
         for ic in range(0, cseg):
             cstart = ic*cstride
             cend = min(cstart+cstride, w)
-            grid = flow[rstart:rend, cstart:cend]
-            avgflow[ir, ic] = np.mean(grid, axis=(0,1))
-    return avgflow
+            grid = channel[rstart:rend, cstart:cend, :]
+            avg[ir, ic, :] = np.mean(grid, axis=(0,1))
+    return avg
 
 def loadHeader(path):
     headers = {}
@@ -146,12 +145,25 @@ def loadFlow(prev, cur, **options):
         flow = polarflow(flow, **options)
     elif flowmode==2:
         flow = getflow(prev, cur, **options)
-        flow = getAvgflow(flow, **options)
+        flow = getAvgChannel(flow, **options)
     elif flowmode==3:
         flow = getflow(prev, cur, **options)
-        flow = getAvgflow(flow, **options)
+        flow = getAvgChannel(flow, **options)
         flow = polarflow(flow, **options)
     return flow
+
+def loadObj(im, **options):
+    flowmode = options['flowmode']
+    objchannel = getObjChannel(im, **options)
+    if flowmode in [2,3]:
+        objchannel = getAvgChannel(objchannel, **options)
+    return objchannel
+
+def loadImg(rgb, **options):
+    flowmode = options['flowmode']
+    if flowmode in [2,3]:
+        rgb = getAvgChannel(rgb, **options)
+    return rgb 
 
 def loadInputX(prev, cur, **options):
     H,W,C = options['inputshape']
@@ -160,20 +172,22 @@ def loadInputX(prev, cur, **options):
     fn = options['fn']
     speedmode = options['speedmode']
     flowmode = options['flowmode']
+    rseg = options['rseg']
+    cseg = options['cseg']
     if flowmode in [2,3]:
         H = rseg; W = cseg
     speedX = np.zeros((H,W,0))
     includeflow, includeobj, includeimg = lookup(speedmode)
     options['checkcache'] = False
-    im = cur
     if includeflow:
         flow = loadFlow(prev, cur, **options)
         speedX = np.concatenate((speedX,flow), axis=-1)
     if includeobj:
-        objchannel = getObjChannel(im, **options)
+        objchannel = loadObj(cur, **options)
         speedX = np.concatenate((speedX,objchannel), axis=-1)
     if includeimg:
-        speedX = np.concatenate((speedX,im), axis=-1)
+        rgb = loadImg(cur, **options)
+        speedX = np.concatenate((speedX, rgb), axis=-1)
     if (speedX.shape != (H,W,C)):
         raise Exception('data input shape={} not equals to expected shape!{}'.format(
             (H,W,C), speedX.shape))
@@ -190,6 +204,8 @@ def loadData(framePaths, **options):
     headers = loadHeader('{0}/../oxts'.format(path))
     labels = dict(vf=[], wu=[], af=[])
     im = None
+    if flowmode in [2,3]:
+        H = rseg; W = cseg
     for framePath in framePaths:
         fn, ext = splitext(basename(framePath))
         path = dirname(framePath) + "/"
@@ -204,14 +220,12 @@ def loadData(framePaths, **options):
         speedXs.append(speedX)
         # print('speedmode={} speedX.shape={}'.format(speedmode, np.array(speedX).shape))
         loadLabels(fn, headers, labels, '{0}/../oxts'.format(path))
-    if flowmode in [0,1]:
-        speedXs = np.reshape(np.array(speedXs), (-1, H,W,C))
-    elif flowmode in [2,3]:
-        speedXs = np.reshape(np.array(speedXs), (-1, rseg,cseg,C))
+    speedXs = np.reshape(np.array(speedXs), (-1, H,W,C))
     vf = np.reshape(labels['vf'], (-1, 1))
     wu = np.reshape(labels['wu'], (-1, 1))
     af = np.reshape(labels['af'], (-1, 1))
     speedYs = np.hstack((vf, wu, af))
+    # print("speedXs.shape={} speedYs.shape={}".format(speedXs.shape, speedYs.shape))
     return ([speedXs, speedYs])
 
 def polarflow(flow, **options):
@@ -257,8 +271,6 @@ def trainSpeed(frameFns, **options):
     np.random.shuffle(mask)
     frameTrain = frameFns[mask]
     frameVal = frameFns[~mask]
-    print("frameTrain.shape={} framVal.shape={}".format(
-        frameTrain.shape, frameVal.shape))
     if model=='linear':
         pass
     elif model=='conv':
