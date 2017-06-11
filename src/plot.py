@@ -112,7 +112,7 @@ def plot_all_loss(**options):
     ax2.legend(handles=handles, loc='center left', bbox_to_anchor=(1, 0.5))
     fig.tight_layout()
     fig.subplots_adjust(bottom=0.2, top=0.85, right=0.7, left=0.05)
-    plt.savefig('{}/loss_all.png'.format(options['path']))
+    plt.savefig('{}/result_all.png'.format(options['path']))
 
 def plot_sep_loss(**options):
     logscale = options['logscale']
@@ -131,14 +131,15 @@ def plot_sep_loss(**options):
         ax1.set_xlabel('epoch')
         ax1.legend(handles=handles)
         plt.gcf().subplots_adjust(bottom=0.15, top=0.75)
-        plt.savefig('{}/loss_{}.png'.format(options['path'], log.replace('result_','').replace('.txt','')))
+        plt.savefig('{}/result_{}.png'.format(options['path'], log.replace('result_','').replace('.txt','')))
 
 def printc(txt, c):
     if c=="g":
         print('\033[92m' + txt + '\033[0m')
 
 def show(**options):
-    toshow = options['toshow']
+    toshows = options['toshow']
+    toshows = toshows.split(',')
     print('\nShowing configuration ...')
     for i, log in enumerate(sort_logs(logs, 'convmode')):
         info = log
@@ -160,20 +161,24 @@ def show(**options):
             k='flowmode'; info += ' {}={}'.format(k, results[log][k])
         k='rseg'; info += ' {}={}'.format(k, results[log][k])
         k='cseg'; info += ' {}={}'.format(k, results[log][k])
-        cond = False
-        if '=' in toshow:
-            key, val = toshow.split('=')
-            if key in ['val_mse', 'train_mse', 'epoch']:
-                cond = key in results[log] and float(results[log][key][-1]) == float(val)
+        cond = True
+        for toshow in toshows:
+            if '=' in toshow:
+                key, val = toshow.split('=')
+                if key in ['val_mse', 'train_mse', 'epoch']:
+                    cond &= key in results[log] and float(results[log][key][-1]) == float(val)
+                else:
+                    cond &= key in results[log] and float(results[log][key]) == float(val)
+            elif '<' in toshow:
+                key, val = toshow.split('<')
+                if key in ['val_mse', 'train_mse', 'epoch']:
+                    cond &= key in results[log] and float(results[log][key][-1]) < float(val)
+                else:
+                    cond &= key in results[log] and float(results[log][key]) < float(val)
             else:
-                cond = key in results[log] and float(results[log][key]) == float(val)
-        elif '<' in toshow:
-            key, val = toshow.split('<')
-            if key in ['val_mse', 'train_mse', 'epoch']:
-                cond = key in results[log] and float(results[log][key][-1]) < float(val)
-            else:
-                cond = key in results[log] and float(results[log][key]) < float(val)
-        if cond:
+                if toshow in results[log] and toshow not in info:
+                    k=toshow; info += ' {}={}'.format(k, results[log][k])
+        if cond and len(toshows)>0:
             printc(info, 'g')
         else:
             print(info)
@@ -196,7 +201,7 @@ def main():
         show(**options)
     else:
         plot_all_loss(**options)
-        # plot_sep_loss(**options)
+        plot_sep_loss(**options)
 
 if __name__ == "__main__":
     main()
