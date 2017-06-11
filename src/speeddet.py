@@ -137,6 +137,22 @@ def loadLabels(fn, headers, labels, labelpath):
         for key in labels:
             labels[key].append(float(vals[headers[key]]))
 
+def loadFlow(prev, cur, **options):
+    flowmode = options['flowmode']
+    if flowmode==0:
+        flow = getflow(prev, cur, **options)
+    elif flowmode==1:
+        flow = getflow(prev, cur, **options)
+        flow = polarflow(flow, **options)
+    elif flowmode==2:
+        flow = getflow(prev, cur, **options)
+        flow = getAvgflow(flow, **options)
+    elif flowmode==3:
+        flow = getflow(prev, cur, **options)
+        flow = getAvgflow(flow, **options)
+        flow = polarflow(flow, **options)
+    return flow
+
 def loadInputX(prev, cur, **options):
     H,W,C = options['inputshape']
     model = options['model']
@@ -144,36 +160,21 @@ def loadInputX(prev, cur, **options):
     fn = options['fn']
     speedmode = options['speedmode']
     flowmode = options['flowmode']
-    rseg = options['rseg']
-    cseg = options['cseg']
+    if flowmode in [2,3]:
+        H = rseg; W = cseg
     speedX = np.zeros((H,W,0))
     includeflow, includeobj, includeimg = lookup(speedmode)
     options['checkcache'] = False
     im = cur
     if includeflow:
-        if flowmode==0:
-            flow = getflow(prev, cur, **options)
-            speedX = np.concatenate((speedX,flow), axis=-1)
-        elif flowmode==1:
-            flow = getflow(prev, cur, **options)
-            flow = polarflow(flow, **options)
-            speedX = np.concatenate((speedX,flow), axis=-1)
-        elif flowmode==2:
-            flow = getflow(prev, cur, **options)
-            flow = getAvgflow(flow, **options)
-            speedX = flow 
-        elif flowmode==3:
-            flow = getflow(prev, cur, **options)
-            flow = getAvgflow(flow, **options)
-            flow = polarflow(flow, **options)
-            speedX = flow 
+        flow = loadFlow(prev, cur, **options)
+        speedX = np.concatenate((speedX,flow), axis=-1)
     if includeobj:
         objchannel = getObjChannel(im, **options)
         speedX = np.concatenate((speedX,objchannel), axis=-1)
     if includeimg:
         speedX = np.concatenate((speedX,im), axis=-1)
-    if (speedX.shape != (H,W,C) and flowmode in [0, 1]) or \
-        (speedX.shape != (rseg,cseg,C) and flowmode in [2, 3]):
+    if (speedX.shape != (H,W,C)):
         raise Exception('data input shape={} not equals to expected shape!{}'.format(
             (H,W,C), speedX.shape))
     return speedX
