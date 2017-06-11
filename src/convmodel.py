@@ -337,7 +337,8 @@ class ConvModel(object):
             return loss, lr, gs
 
     def get_model_path(self):
-        return SCRATCH_PATH + ("convmodel_speedmode_{}_convmode_{}/".format(self.options['speedmode'], self.options['convmode']))
+        return SCRATCH_PATH + ("convmodel_speedmode_{}_convmode_{}_flowmode_{}/".format(
+            self.options['speedmode'], self.options['convmode'], self.options['flowmode']))
 
     def restore(self):
         model_path = self.get_model_path()
