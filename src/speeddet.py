@@ -195,7 +195,7 @@ def loadData(framePaths, **options):
         options['path'] = path
         options['fn'] = fn
         includeflow, includeobj, includeimg = lookup(speedmode)
-        if includeobj or includeobj:
+        if includeobj or includeimg:
             im = cv2.imread(framePath, cv2.IMREAD_COLOR)
         else:
             im = None
