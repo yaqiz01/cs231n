@@ -299,7 +299,7 @@ def filterby(**options):
             elif '<' in toshow:
                 key, val = toshow.split('<')
                 if key in ['val_mse', 'train_mse', 'epoch']:
-                    cond &= key in results[log] and float(results[log][key][-1]) < float(val)
+                    cond &= key in results[log] and len(results[log][key])>0 and float(results[log][key][-1]) < float(val)
                 else:
                     cond &= key in results[log] and float(results[log][key]) < float(val)
             else:
