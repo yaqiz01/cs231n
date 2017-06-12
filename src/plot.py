@@ -14,7 +14,7 @@ def parse(**options):
     logs = [f for f in listdir(path) if isfile(join(path, f)) and f.endswith('.txt')]
 
     for log in logs:
-        print('Parsing {}'.format(log))
+        #print('Parsing {}'.format(log))
         with open(join(path, log), 'r') as f:
             results[log] = {}
             results[log]['epoch'] = []
@@ -34,6 +34,8 @@ def parse(**options):
                       results[log]['val_mse'].append(float(line.split('Overall val mse = ')[1]))
                     except:
                       continue
+        k = 'valmode';
+        if k not in results[log]: results[log][k] = 0
 
 def lookup(d):
     label = ''
@@ -91,7 +93,7 @@ def plot_all_loss(**options):
             handles += (ax1.plot(results[log]['epoch'], results[log]['train_mse'], label=label,
                 color=cl, linestyle=ls))
     ax1.set_title('train_loss')
-    ax1.grid(True)
+    ax1.grid(True, ls='dashed')
     ax1.set_xlabel('epoch')
     handles = []
     slogs = sort_logs(logs)
@@ -107,7 +109,7 @@ def plot_all_loss(**options):
                 color=cl, linestyle=ls))
     ax2.set_ylim([0,max(results[log]['val_mse'])+20])
     ax2.set_title('val_loss')
-    ax2.grid(True)
+    ax2.grid(True, ls='dashed')
     ax2.set_xlabel('epoch')
     ax2.legend(handles=handles, loc='center left', bbox_to_anchor=(1, 0.5))
     fig.tight_layout()
@@ -115,7 +117,6 @@ def plot_all_loss(**options):
     plt.savefig('{}/result_all.png'.format(options['path']))
 
 def plot_sep_loss(**options):
-    logscale = options['logscale']
     plt.clf()
     for i, log in enumerate(logs):
         fig, ax1 = plt.subplots(figsize=(4,3))
@@ -127,27 +128,136 @@ def plot_sep_loss(**options):
             handles += (ax1.plot(results[log]['epoch'], results[log]['train_mse'], label='train_mse'))
             handles += (ax1.plot(results[log]['epoch'], results[log]['val_mse'], label='val_mse'))
         ax1.set_title('loss of {}'.format(lookup(results[log])))
-        ax1.grid(True)
+        ax1.grid(True, ls='dashed')
         ax1.set_xlabel('epoch')
         ax1.legend(handles=handles)
         plt.gcf().subplots_adjust(bottom=0.15, top=0.75)
         plt.savefig('{}/result_{}.png'.format(options['path'], log.replace('result_','').replace('.txt','')))
 
-def plot_lr_sweep(convmode, speedmode, flowmode, dropout, decay_rate, **options):
+def plot_param_sweep(mode, **options):
     logscale = options['logscale']
     plt.clf()
+    fig, ax = plt.subplots(figsize=(4,3))
 
-    logs_filtered = list(filter(lambda log: log['convmode'] == convmode, logs))
+    logs_filtered = list(filter(lambda log: 'lr_' in log, logs))
+    logs_filtered.sort(key=lambda log : float(results[log][mode]))
+
+    x = list(map(lambda log: float(results[log][mode]), logs_filtered))
+    y_train = list(map(lambda log: results[log]['train_mse'][-1], logs_filtered))
+    y_val = list(map(lambda log: results[log]['val_mse'][-1], logs_filtered))
+
+    ax.plot(x, y_train, 'b', label='train_mse')
+    ax.plot(x, y_val, 'b--', label='val_mse')
     
+    # ax.set_title(mode + ' Sweep')
+    ax.grid(True, ls='dashed')
+    # ax.set_xlabel(mode)
+    ax.set_xscale('log')
+    #ax.set_xlim(-1, float(max(x))+0.05)
+    ax.legend(loc='best')
+    plt.savefig('{}/param_tuning_lr_{}.png'.format(options['path'], mode))
+
+def plot_downsample(**options):
+    fig, axes = plt.subplots(2,1, figsize=(4.5,6))
+    convmodes = [0, 1]
+    neq = ['result_20170609020814.txt', 'result_20170609020824.txt']
+    thresh = [20, 10]
+    for i, convmode in enumerate(convmodes):
+        options['toshow'] = \
+            "speedmode=0,flowmode=2,dropout=0.5,learning_rate=0.0001,convmode={},name!={}".format(convmode,
+                    neq[i])
+        filtered = filterby(**options)
+        logs_filtered = [log for log, info in filtered[True]]
+        options['toshow'] = \
+            "speedmode=0,flowmode=1,dropout=0.5,learning_rate=0.0001,convmode={},train_mse<{}".format(convmode,
+                    thresh[i])
+        filtered = filterby(**options)
+        logs_filtered += [log for log, info in filtered[True]] 
+        x = []
+        x_label = []
+        for log in logs_filtered:
+            if int(results[log]['flowmode'])==2:
+                x.append(int(results[log]['rseg']) * int(results[log]['cseg']))
+                x_label.append('({},{})'.format(int(results[log]['rseg']),
+                    int(results[log]['cseg'])))
+            else:
+                x.append(1242*375)
+                x_label.append('(1242,375)')
+        y_train = list(map(lambda log: results[log]['train_mse'][-1], logs_filtered))
+        y_val = list(map(lambda log: results[log]['val_mse'][-1], logs_filtered))
+        sort = sorted(zip(x, y_train, y_val))
+        x = [xx for xx ,yt, yv in sort]
+        y_train = [yt for xx ,yt, yv in sort]
+        y_val = [yv for xx ,yt, yv in sort]
+        axes[i].plot(x, y_train, 'go-', label='train_mse')
+        axes[i].plot(x, y_val, 'ro--', label='val_mse')
+        axes[i].legend(loc='best')
+        axes[i].set_xticks(x)
+        axes[i].set_xticklabels(x_label, rotation=30)
+        axes[i].grid(True, ls='dashed')
+        axes[i].set_title(lookup(results[log]))
+    fig.subplots_adjust(hspace=0.4)
+    fig.subplots_adjust(bottom=0.15)
+    plt.savefig('{}/result_downsample.png'.format(options['path']))
+
+def plot_batch_size(**options):
+    fig, ax = plt.subplots(figsize=(4,3))
+    batches = {}
+    for i, log in enumerate(logs):
+        if 'batch_size' in results[log]:
+            bs = results[log]['batch_size']
+            train_mse = results[log]['train_mse'][-1]
+            if (bs, 'train') not in batches:
+                batches[(bs, 'train')] = [train_mse]
+            else:
+                batches[(bs, 'train')].append(train_mse)
+            val_mse = results[log]['val_mse'][-1]
+            if (bs, 'val') not in batches:
+                batches[(bs, 'val')] = [val_mse]
+            else:
+                batches[(bs, 'val')].append(val_mse)
+    keys = [bs for bs in batches]
+    data = [batches[bs] for bs in keys]
+    label = [bs+'_'+tp for bs, tp in keys]
+    # multiple box plots on one figure
+    plt.boxplot(data, 0, 'gD')
+    plt.xticks(range(1, len(data)+1), label)
+    ax.set_ylabel('Averaged MSE Loss')
+    ax.set_yscale('log')
+    plt.tight_layout()
+    plt.savefig('{}/result_batch.png'.format(options['path']))
+
+def plot_valsample(**options):
+    options['toshow'] = "valmode=0"
+    filtered = filterby(**options)
+    oldlogs = [log for log,info in filtered[True]]
+    newlogs = [log for log,info in filtered[False]]
+    oldx = [results[log]['train_mse'][-1] for log in oldlogs]
+    oldy = [results[log]['val_mse'][-1] for log in oldlogs]
+    newx = [results[log]['train_mse'][-1] for log in newlogs]
+    newy = [results[log]['val_mse'][-1] for log in newlogs]
+    fig, ax = plt.subplots(figsize=(4,3))
+    plt.plot(oldx, oldy, 'ro')
+    plt.plot(newx, newy, 'go')
+    ax.grid(True, ls='dashed')
+    mx = max(max(oldx), max(newx), max(oldy), max(newy))+1
+    mx = 100 
+    ax.set_xlim([0, mx])
+    ax.set_ylim([0, mx])
+    ax.set_aspect('equal')
+    ax.set_xlabel('Train MSE Loss')
+    ax.set_ylabel('Val MSE Loss')
+    plt.tight_layout()
+    plt.savefig('{}/result_valsample.png'.format(options['path']))
 
 def printc(txt, c):
     if c=="g":
         print('\033[92m' + txt + '\033[0m')
 
-def show(**options):
+def filterby(**options):
     toshows = options['toshow']
     toshows = toshows.split(',')
-    print('\nShowing configuration ...')
+    filtered = {True: [], False: []}
     for i, log in enumerate(sort_logs(logs, 'convmode')):
         info = log
         val_mse = None
@@ -170,7 +280,15 @@ def show(**options):
         k='cseg'; info += ' {}={}'.format(k, results[log][k])
         cond = True
         for toshow in toshows:
-            if '=' in toshow:
+            if '!=' in toshow:
+                key, val = toshow.split('!=')
+                if key in ['val_mse', 'train_mse', 'epoch']:
+                    cond &= key in results[log] and float(results[log][key][-1]) != float(val)
+                elif key in ['name']:
+                    cond &= val != log
+                else:
+                    cond &= key in results[log] and float(results[log][key]) != float(val)
+            elif '=' in toshow:
                 key, val = toshow.split('=')
                 if key in ['val_mse', 'train_mse', 'epoch']:
                     cond &= key in results[log] and float(results[log][key][-1]) == float(val)
@@ -181,16 +299,25 @@ def show(**options):
             elif '<' in toshow:
                 key, val = toshow.split('<')
                 if key in ['val_mse', 'train_mse', 'epoch']:
-                    cond &= key in results[log] and float(results[log][key][-1]) < float(val)
+                    cond &= key in results[log] and len(results[log][key])>0 and float(results[log][key][-1]) < float(val)
                 else:
                     cond &= key in results[log] and float(results[log][key]) < float(val)
             else:
                 if toshow in results[log] and toshow not in info:
                     k=toshow; info += ' {}={}'.format(k, results[log][k])
         if cond and len(toshows)>0:
-            printc(info, 'g')
+            filtered[True].append((log, info))
         else:
-            print(info)
+            filtered[False].append((log, info))
+    return filtered
+
+def show(**options):
+    print('\nShowing configuration ...')
+    filtered = filterby(**options)
+    for log, info in filtered[False]:
+        print(info)
+    for log, info in filtered[True]:
+        printc(info, 'g')
 
 def main():
     usage = "Usage: plot [options --path]"
@@ -202,7 +329,8 @@ def main():
     parser.add_argument('--show', dest='toshow', action='store', default='None',
             help='Specify condition to highlight. e.g. --show "val_mse<3" ')
     parser.add_argument('--plot', dest='toplot', action='store', default='None',
-            help='Specify plots to generate. e.g. --plot "all_loss sep_loss lr" ')
+            help='Specify plots to generate. e.g. --plot "all_loss sep_loss learning_rate dropout \
+            batch_size, downsample" ')
     (options, args) = parser.parse_known_args()
 
     options = vars(options)
@@ -217,8 +345,16 @@ def main():
                 plot_all_loss(**options)
             elif plot == 'sep_loss':
                 plot_sep_loss(**options)
-            elif plot == 'lr':
-                plot_lr_sweep(convmode=0, speedmode=0, flowmode=2, dropout=0.5, decay_rate=0.95, **options)
+            elif plot == 'learning_rate':
+                plot_param_sweep(plot, **options)
+            elif plot == 'dropout':
+                plot_param_sweep(plot, **options)
+            elif plot == 'batch_size':
+                plot_batch_size(**options)
+            elif plot == 'downsample':
+                plot_downsample(**options)
+            elif plot == 'valsample':
+                plot_valsample(**options)
 
 if __name__ == "__main__":
     main()
