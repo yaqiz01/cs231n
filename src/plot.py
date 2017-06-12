@@ -132,24 +132,24 @@ def plot_sep_loss(**options):
         plt.gcf().subplots_adjust(bottom=0.15, top=0.75)
         plt.savefig('{}/result_{}.png'.format(options['path'], log.replace('result_','').replace('.txt','')))
 
-def plot_lr_sweep(**options):
+def plot_param_sweep(mode, **options):
     logscale = options['logscale']
     plt.clf()
     fig, ax = plt.subplots(figsize=(4,3))
 
     logs_filtered = list(filter(lambda log: 'lr_' in log, logs))
-    logs_filtered.sort(key=lambda log : float(results[log]['learning_rate']))
+    logs_filtered.sort(key=lambda log : float(results[log][mode]))
 
-    x = list(map(lambda log: float(results[log]['learning_rate']), logs_filtered))
+    x = list(map(lambda log: float(results[log][mode]), logs_filtered))
     y_train = list(map(lambda log: results[log]['train_mse'][-1], logs_filtered))
     y_val = list(map(lambda log: results[log]['val_mse'][-1], logs_filtered))
 
     ax.plot(x, y_train, 'b', label='train_mse')
     ax.plot(x, y_val, 'b--', label='val_mse')
     
-    ax.set_title('learning rate sweep')
+    ax.set_title(mode + ' Sweep')
     ax.grid(True)
-    ax.set_xlabel('Learning Rate')
+    ax.set_xlabel(mode)
     ax.set_xscale('log')
     #ax.set_xlim(-1, float(max(x))+0.05)
     ax.legend(loc='best')
@@ -220,7 +220,7 @@ def main():
     parser.add_argument('--show', dest='toshow', action='store', default='None',
             help='Specify condition to highlight. e.g. --show "val_mse<3" ')
     parser.add_argument('--plot', dest='toplot', action='store', default='None',
-            help='Specify plots to generate. e.g. --plot "all_loss sep_loss lr" ')
+            help='Specify plots to generate. e.g. --plot "all_loss sep_loss learning_rate dropout" ')
     (options, args) = parser.parse_known_args()
 
     options = vars(options)
@@ -235,8 +235,10 @@ def main():
                 plot_all_loss(**options)
             elif plot == 'sep_loss':
                 plot_sep_loss(**options)
-            elif plot == 'lr':
-                plot_lr_sweep(**options)
+            elif plot == 'learning_rate':
+                plot_param_sweep(plot, **options)
+            elif plot == 'dropout':
+                plot_param_sweep(plot, **options)
 
 if __name__ == "__main__":
     main()
