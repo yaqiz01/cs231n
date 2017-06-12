@@ -34,6 +34,8 @@ def parse(**options):
                       results[log]['val_mse'].append(float(line.split('Overall val mse = ')[1]))
                     except:
                       continue
+        k = 'valmode';
+        if k not in results[log]: results[log][k] = 0
 
 def lookup(d):
     label = ''
@@ -224,7 +226,30 @@ def plot_batch_size(**options):
     ax.set_yscale('log')
     plt.tight_layout()
     plt.savefig('{}/result_batch.png'.format(options['path']))
-    
+
+def plot_valsample(**options):
+    options['toshow'] = "valmode=0"
+    filtered = filterby(**options)
+    oldlogs = [log for log,info in filtered[True]]
+    newlogs = [log for log,info in filtered[False]]
+    oldx = [results[log]['train_mse'][-1] for log in oldlogs]
+    oldy = [results[log]['val_mse'][-1] for log in oldlogs]
+    newx = [results[log]['train_mse'][-1] for log in newlogs]
+    newy = [results[log]['val_mse'][-1] for log in newlogs]
+    fig, ax = plt.subplots(figsize=(4,3))
+    plt.plot(oldx, oldy, 'ro')
+    plt.plot(newx, newy, 'go')
+    ax.grid(True, ls='dashed')
+    mx = max(max(oldx), max(newx), max(oldy), max(newy))+1
+    mx = 100 
+    ax.set_xlim([0, mx])
+    ax.set_ylim([0, mx])
+    ax.set_aspect('equal')
+    ax.set_xlabel('Train MSE Loss')
+    ax.set_ylabel('Val MSE Loss')
+    plt.tight_layout()
+    plt.savefig('{}/result_valsample.png'.format(options['path']))
+
 def printc(txt, c):
     if c=="g":
         print('\033[92m' + txt + '\033[0m')
@@ -328,6 +353,8 @@ def main():
                 plot_batch_size(**options)
             elif plot == 'downsample':
                 plot_downsample(**options)
+            elif plot == 'valsample':
+                plot_valsample(**options)
 
 if __name__ == "__main__":
     main()
