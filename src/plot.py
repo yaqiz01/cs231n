@@ -133,6 +133,13 @@ def plot_sep_loss(**options):
         plt.gcf().subplots_adjust(bottom=0.15, top=0.75)
         plt.savefig('{}/result_{}.png'.format(options['path'], log.replace('result_','').replace('.txt','')))
 
+def plot_lr_sweep(convmode, speedmode, flowmode, dropout, decay_rate, **options):
+    logscale = options['logscale']
+    plt.clf()
+
+    logs_filtered = list(filter(lambda log: log['convmode'] == convmode, logs))
+    
+
 def printc(txt, c):
     if c=="g":
         print('\033[92m' + txt + '\033[0m')
@@ -167,6 +174,8 @@ def show(**options):
                 key, val = toshow.split('=')
                 if key in ['val_mse', 'train_mse', 'epoch']:
                     cond &= key in results[log] and float(results[log][key][-1]) == float(val)
+                elif key in ['name']:
+                    cond &= val in log
                 else:
                     cond &= key in results[log] and float(results[log][key]) == float(val)
             elif '<' in toshow:
@@ -192,6 +201,8 @@ def main():
         help='Use log scale')
     parser.add_argument('--show', dest='toshow', action='store', default='None',
             help='Specify condition to highlight. e.g. --show "val_mse<3" ')
+    parser.add_argument('--plot', dest='toplot', action='store', default='None',
+            help='Specify plots to generate. e.g. --plot "all_loss sep_loss lr" ')
     (options, args) = parser.parse_known_args()
 
     options = vars(options)
@@ -199,9 +210,15 @@ def main():
 
     if options['toshow'] != 'None':
         show(**options)
-    else:
-        plot_all_loss(**options)
-        plot_sep_loss(**options)
+    
+    if options['toplot'] != 'None':
+        for plot in options['toplot'].split(' '):
+            if plot == 'all_loss':
+                plot_all_loss(**options)
+            elif plot == 'sep_loss':
+                plot_sep_loss(**options)
+            elif plot == 'lr':
+                plot_lr_sweep(convmode=0, speedmode=0, flowmode=2, dropout=0.5, decay_rate=0.95, **options)
 
 if __name__ == "__main__":
     main()
