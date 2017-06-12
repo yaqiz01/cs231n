@@ -14,7 +14,7 @@ def parse(**options):
     logs = [f for f in listdir(path) if isfile(join(path, f)) and f.endswith('.txt')]
 
     for log in logs:
-        print('Parsing {}'.format(log))
+        #print('Parsing {}'.format(log))
         with open(join(path, log), 'r') as f:
             results[log] = {}
             results[log]['epoch'] = []
@@ -115,7 +115,6 @@ def plot_all_loss(**options):
     plt.savefig('{}/result_all.png'.format(options['path']))
 
 def plot_sep_loss(**options):
-    logscale = options['logscale']
     plt.clf()
     for i, log in enumerate(logs):
         fig, ax1 = plt.subplots(figsize=(4,3))
@@ -133,11 +132,28 @@ def plot_sep_loss(**options):
         plt.gcf().subplots_adjust(bottom=0.15, top=0.75)
         plt.savefig('{}/result_{}.png'.format(options['path'], log.replace('result_','').replace('.txt','')))
 
-def plot_lr_sweep(convmode, speedmode, flowmode, dropout, decay_rate, **options):
+def plot_lr_sweep(**options):
     logscale = options['logscale']
     plt.clf()
+    fig, ax = plt.subplots(figsize=(4,3))
 
-    logs_filtered = list(filter(lambda log: log['convmode'] == convmode, logs))
+    logs_filtered = list(filter(lambda log: 'lr_' in log, logs))
+    
+    x = list(map(lambda log: results[log]['learning_rate'], logs_filtered))
+    y_train = list(map(lambda log: results[log]['train_mse'][-1], logs_filtered))
+    y_val = list(map(lambda log: results[log]['val_mse'][-1], logs_filtered))
+
+    ax.plot(x, y_train, 'bo', label='train_mse')
+    ax.plot(x, y_val, 'go', label='val_mse')
+    
+    ax.set_title('learning rate sweep')
+    ax.grid(True)
+    ax.set_xlabel('Learning Rate')
+    ax.set_xscale('log')
+    ax.legend(loc='lower right')
+    plt.savefig('{}/param_tuning_lr.png'.format(options['path']))
+
+
     
 
 def printc(txt, c):
@@ -218,7 +234,7 @@ def main():
             elif plot == 'sep_loss':
                 plot_sep_loss(**options)
             elif plot == 'lr':
-                plot_lr_sweep(convmode=0, speedmode=0, flowmode=2, dropout=0.5, decay_rate=0.95, **options)
+                plot_lr_sweep(**options)
 
 if __name__ == "__main__":
     main()
