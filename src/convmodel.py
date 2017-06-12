@@ -4,27 +4,14 @@ from __future__ import print_function
 from _init_paths import *
 import logging
 import os
+from os.path import isfile, isdir, join, splitext, basename, dirname
 from datetime import datetime
 import tensorflow as tf
 import numpy as np
 from speeddet import *
 from util import get_minibatches, Progbar
 from play import *
-
-tf.app.flags.DEFINE_float("learning_rate", 0.001, "Learning rate.")
-tf.app.flags.DEFINE_float("dropout", 0.5, "Dropout rate.")
-tf.app.flags.DEFINE_integer("epochs", 15, "Number of epochs to train.")
-tf.app.flags.DEFINE_integer("batch_size", 16, "Batch size to use during training.")
-tf.app.flags.DEFINE_integer("decay_step", 100, "Number of steps between decays.")
-tf.app.flags.DEFINE_float("decay_rate", 0.95, "Decay rate.")
-tf.app.flags.DEFINE_integer("print_every", 100, "How many iterations to do per print.")
-tf.app.flags.DEFINE_string("weight_init", "xavier", "tf method for weight initialization")
-tf.app.flags.DEFINE_string("step_optimize", False, "whether to optimize separately")
-FLAGS = tf.app.flags.FLAGS
-FLAGS._parse_flags()
-flagDict = FLAGS.__dict__['__flags']
-for flag in flagDict:
-    print('Configuration: {}={}'.format(flag, flagDict[flag]))
+import pickle
 
 def leaky_relu(x, alpha=0.01):
     """Compute the leaky ReLU activation function.
@@ -80,89 +67,9 @@ def res_net(X, is_training):
 slim = tf.contrib.slim
 trunc_normal = lambda stddev: tf.truncated_normal_initializer(0.0, stddev)
 
-def alex_net(X, is_training):
-    init = tf.contrib.layers.xavier_initializer()
-    if FLAGS.weight_init == "trunc_normal":
-	    init = trunc_normal(0.0005)
-
-    with tf.variable_scope("conv_1"):
-        X = tf.layers.conv2d(X, 64, 11, strides=4, activation=tf.nn.relu, kernel_initializer=init)
-        X = tf.layers.max_pooling2d(X, 3, 2)
-    with tf.variable_scope("conv_2"):
-        X = tf.layers.conv2d(X, 192, 5, activation=tf.nn.relu, kernel_initializer=init)
-        X = tf.layers.max_pooling2d(X, 3, 2)
-    with tf.variable_scope("conv_3"):
-        X = tf.layers.conv2d(X, 384, 3, activation=tf.nn.relu, kernel_initializer=init)
-    with tf.variable_scope("conv_4"):
-        X = tf.layers.conv2d(X, 384, 3, activation=tf.nn.relu, kernel_initializer=init)
-    with tf.variable_scope("conv_5"):
-        X = tf.layers.conv2d(X, 256, 3, activation=tf.nn.relu, kernel_initializer=init)
-        X = tf.layers.max_pooling2d(X, 3, 2)
-    with tf.variable_scope("fc_6"):
-        X = tf.layers.conv2d(X, 4096, 5, activation=tf.nn.relu, kernel_initializer=init)
-        X = tf.layers.dropout(X, rate=FLAGS.dropout, training=is_training)
-    with tf.variable_scope("fc_7"):
-        X = tf.layers.conv2d(X, 4096, 1, activation=tf.nn.relu, kernel_initializer=init)
-        X = tf.layers.dropout(X, rate=FLAGS.dropout, training=is_training)
-    return X
-
-def conv_helper(input, kernel, biases, padding="VALID", group=1):
-    '''From https://github.com/ethereon/caffe-tensorflow
-    '''
-    convolve = lambda i, k: tf.nn.conv2d(i, k, [1, 1, 1, 1], padding=padding)
-
-    if group==1:
-        conv = convolve(input, kernel)
-    else:
-        print("input is: ", input)
-        input_groups =  tf.split(input, group, 3)   #tf.split(3, group, input)
-        print("kernel is: ", kernel)
-        kernel_groups = tf.split(kernel, group, 3)  #tf.split(3, group, kernel)
-        output_groups = [convolve(i, k) for i,k in zip(input_groups, kernel_groups)]
-        conv = tf.concat(output_groups, 3)          #tf.concat(3, output_groups)
-    return tf.reshape(tf.nn.bias_add(conv, biases), [-1]+conv.get_shape().as_list()[1:])
-
-def alexnet_v2_arg_scope(weight_decay=0.0005):
-  with slim.arg_scope([slim.conv2d, slim.fully_connected],
-                      activation_fn=tf.nn.relu,
-                      biases_initializer=tf.constant_initializer(0.1),
-                      weights_regularizer=slim.l2_regularizer(weight_decay)):
-    with slim.arg_scope([slim.conv2d], padding='SAME'):
-      with slim.arg_scope([slim.max_pool2d], padding='VALID') as arg_sc:
-        return arg_sc
-
-def alexnet_v2(X, is_training, scope='alexnet_v2'):
-  with tf.variable_scope(scope, 'alexnet_v2', [X]) as sc:
-    # Collect outputs for conv2d, fully_connected and max_pool2d.
-    with slim.arg_scope([slim.conv2d, slim.fully_connected, slim.max_pool2d]):
-      net = slim.conv2d(X, 64, [11, 11], 4, padding='VALID',
-                        scope='conv1')
-      net = slim.max_pool2d(net, [3, 3], 2, scope='pool1')
-      net = slim.conv2d(net, 192, [5, 5], scope='conv2')
-      net = slim.max_pool2d(net, [3, 3], 2, scope='pool2')
-      net = slim.conv2d(net, 384, [3, 3], scope='conv3')
-      net = slim.conv2d(net, 384, [3, 3], scope='conv4')
-      net = slim.conv2d(net, 256, [3, 3], scope='conv5')
-      net = slim.max_pool2d(net, [3, 3], 2, scope='pool5')
-
-      # Use conv2d instead of fully_connected layers.
-      with slim.arg_scope([slim.conv2d],
-                          weights_initializer=trunc_normal(0.005),
-                          biases_initializer=tf.constant_initializer(0.1)):
-        net = slim.conv2d(net, 4096, [5, 5], padding='VALID',
-                          scope='fc6')
-        net = slim.dropout(net, FLAGS.dropout, is_training=is_training,
-                           scope='dropout6')
-        net = slim.conv2d(net, 4096, [1, 1], scope='fc7')
-        net = slim.dropout(net, FLAGS.dropout, is_training=is_training,
-                           scope='dropout7')
-        net = slim.conv2d(net, 4096, [1, 1],
-                          activation_fn=None,
-                          normalizer_fn=None,
-                          biases_initializer=tf.zeros_initializer(),
-                          scope='fc8')
-
-      return net
+def get_model_path(**options):
+    return SCRATCH_PATH + ("convmodel_speedmode_{}_convmode_{}_flowmode_{}/".format(
+        options['speedmode'], options['convmode'], options['flowmode']))
 
 class ConvModel(object):
     def __init__(self, options):
@@ -180,7 +87,7 @@ class ConvModel(object):
 	    self.pretrained_weights = np.load('bvlc_alexnet.npy')[()]
         self.session = tf.Session()
         self.options = options
-        self.setup_placeholders(**options)
+        self.setup_placeholders()
         self.setup_system()
         self.setup_loss()
         self.saver = tf.train.Saver(max_to_keep=50)
@@ -188,12 +95,12 @@ class ConvModel(object):
     def close(self):
         self.session.close()
 
-    def setup_placeholders(self, **options):
-        flowmode = options['flowmode']
-        rseg = options['rseg']
-        cseg = options['cseg']
+    def setup_placeholders(self):
+        flowmode = self.options['flowmode']
+        rseg = self.options['rseg']
+        cseg = self.options['cseg']
         tp = tf.float32
-        H,W,C = options['inputshape']
+        H,W,C = self.options['inputshape']
         if flowmode in [2,3]:
             H = rseg; W = cseg;
         self.X_placeholder = tf.placeholder(tp, [None, H, W, C])
@@ -209,28 +116,112 @@ class ConvModel(object):
         with tf.variable_scope("conv_2"):
             conv2_W = tf.Variable(self.pretrained_weights['conv2'][0])
             conv2_b = tf.Variable(self.pretrained_weights['conv2'][1])
-            X = conv_helper(X, conv2_W, conv2_b, group=2)
+            X = conv_helper(self, X, conv2_W, conv2_b, group=2)
             X = tf.layers.max_pooling2d(X, 3, 2)
         with tf.variable_scope("conv_3"):
             conv3_W = tf.Variable(self.pretrained_weights['conv3'][0])
             conv3_b = tf.Variable(self.pretrained_weights['conv3'][1])
-            X = conv_helper(X, conv3_W, conv3_b, group=1)
+            X = conv_helper(self, X, conv3_W, conv3_b, group=1)
         with tf.variable_scope("conv_4"):
             conv4_W = tf.Variable(self.pretrained_weights['conv4'][0])
             conv4_b = tf.Variable(self.pretrained_weights['conv4'][1])
-            X = conv_helper(X, conv4_W, conv4_b, group=2)
+            X = conv_helper(self, X, conv4_W, conv4_b, group=2)
         with tf.variable_scope("conv_5"):
             conv5_W = tf.Variable(self.pretrained_weights['conv5'][0])
             conv5_b = tf.Variable(self.pretrained_weights['conv5'][1])
-            X = conv_helper(X, conv5_W, conv5_b, group=2)
+            X = conv_helper(self, X, conv5_W, conv5_b, group=2)
             X = tf.layers.max_pooling2d(X, 3, 2)
         with tf.variable_scope("fc_6"):
             X = tf.layers.conv2d(X, 4096, 5, activation=tf.nn.relu, kernel_initializer=init)
-            X = tf.layers.dropout(X, rate=FLAGS.dropout, training=is_training)
+            X = tf.layers.dropout(X, rate=options["dropout"], training=is_training)
         with tf.variable_scope("fc_7"):
             X = tf.layers.conv2d(X, 4096, 1, activation=tf.nn.relu, kernel_initializer=init)
-            X = tf.layers.dropout(X, rate=FLAGS.dropout, training=is_training)
+            X = tf.layers.dropout(X, rate=options["dropout"], training=is_training)
         return X
+
+    def alex_net(self, X, is_training):
+        init = tf.contrib.layers.xavier_initializer()
+        if self.options["weight_init"] == "trunc_normal":
+    	    init = trunc_normal(0.0005)
+    
+        with tf.variable_scope("conv_1"):
+            X = tf.layers.conv2d(X, 64, 11, strides=4, activation=tf.nn.relu, kernel_initializer=init)
+            X = tf.layers.max_pooling2d(X, 3, 2)
+        with tf.variable_scope("conv_2"):
+            X = tf.layers.conv2d(X, 192, 5, activation=tf.nn.relu, kernel_initializer=init)
+            X = tf.layers.max_pooling2d(X, 3, 2)
+        with tf.variable_scope("conv_3"):
+            X = tf.layers.conv2d(X, 384, 3, activation=tf.nn.relu, kernel_initializer=init)
+        with tf.variable_scope("conv_4"):
+            X = tf.layers.conv2d(X, 384, 3, activation=tf.nn.relu, kernel_initializer=init)
+        with tf.variable_scope("conv_5"):
+            X = tf.layers.conv2d(X, 256, 3, activation=tf.nn.relu, kernel_initializer=init)
+            X = tf.layers.max_pooling2d(X, 3, 2)
+        with tf.variable_scope("fc_6"):
+            X = tf.layers.conv2d(X, 4096, 5, activation=tf.nn.relu, kernel_initializer=init)
+            X = tf.layers.dropout(X, rate=self.options["dropout"], training=is_training)
+        with tf.variable_scope("fc_7"):
+            X = tf.layers.conv2d(X, 4096, 1, activation=tf.nn.relu, kernel_initializer=init)
+            X = tf.layers.dropout(X, rate=self.options["dropout"], training=is_training)
+        return X
+    
+    def conv_helper(self, input, kernel, biases, padding="VALID", group=1):
+        '''From https://github.com/ethereon/caffe-tensorflow
+        '''
+        convolve = lambda i, k: tf.nn.conv2d(i, k, [1, 1, 1, 1], padding=padding)
+    
+        if group==1:
+            conv = convolve(input, kernel)
+        else:
+            print("input is: ", input)
+            input_groups =  tf.split(input, group, 3)   #tf.split(3, group, input)
+            print("kernel is: ", kernel)
+            kernel_groups = tf.split(kernel, group, 3)  #tf.split(3, group, kernel)
+            output_groups = [convolve(i, k) for i,k in zip(input_groups, kernel_groups)]
+            conv = tf.concat(output_groups, 3)          #tf.concat(3, output_groups)
+        return tf.reshape(tf.nn.bias_add(conv, biases), [-1]+conv.get_shape().as_list()[1:])
+    
+    def alexnet_v2_arg_scope(self, weight_decay=0.0005):
+      with slim.arg_scope([slim.conv2d, slim.fully_connected],
+                          activation_fn=tf.nn.relu,
+                          biases_initializer=tf.constant_initializer(0.1),
+                          weights_regularizer=slim.l2_regularizer(weight_decay)):
+        with slim.arg_scope([slim.conv2d], padding='SAME'):
+          with slim.arg_scope([slim.max_pool2d], padding='VALID') as arg_sc:
+            return arg_sc
+    
+    def alexnet_v2(self, X, is_training, scope='alexnet_v2'):
+      with tf.variable_scope(scope, 'alexnet_v2', [X]) as sc:
+        # Collect outputs for conv2d, fully_connected and max_pool2d.
+        with slim.arg_scope([slim.conv2d, slim.fully_connected, slim.max_pool2d]):
+          net = slim.conv2d(X, 64, [11, 11], 4, padding='VALID',
+                            scope='conv1')
+          net = slim.max_pool2d(net, [3, 3], 2, scope='pool1')
+          net = slim.conv2d(net, 192, [5, 5], scope='conv2')
+          net = slim.max_pool2d(net, [3, 3], 2, scope='pool2')
+          net = slim.conv2d(net, 384, [3, 3], scope='conv3')
+          net = slim.conv2d(net, 384, [3, 3], scope='conv4')
+          net = slim.conv2d(net, 256, [3, 3], scope='conv5')
+          net = slim.max_pool2d(net, [3, 3], 2, scope='pool5')
+    
+          # Use conv2d instead of fully_connected layers.
+          with slim.arg_scope([slim.conv2d],
+                              weights_initializer=trunc_normal(0.005),
+                              biases_initializer=tf.constant_initializer(0.1)):
+            net = slim.conv2d(net, 4096, [5, 5], padding='VALID',
+                              scope='fc6')
+            net = slim.dropout(net, self.options["dropout"], is_training=is_training,
+                               scope='dropout6')
+            net = slim.conv2d(net, 4096, [1, 1], scope='fc7')
+            net = slim.dropout(net, self.options["dropout"], is_training=is_training,
+                               scope='dropout7')
+            net = slim.conv2d(net, 4096, [1, 1],
+                              activation_fn=None,
+                              normalizer_fn=None,
+                              biases_initializer=tf.zeros_initializer(),
+                              scope='fc8')
+    
+          return net
 
     def setup_network(self, X, y, is_training):
         print("\n\n===== Setup Network ======\n\n")
@@ -254,13 +245,13 @@ class ConvModel(object):
             conv_out = tf.reshape(res_out, [-1, flat_dim])
 
         elif self.options['convmode'] == 2:
-            alex_out = alex_net(X, is_training)
+            alex_out = self.alex_net(X, is_training)
             flat_dim = np.product(alex_out.shape[1:]).value
             conv_out = tf.reshape(alex_out, [-1, flat_dim])
 
         elif self.options['convmode'] == 3:
-            with slim.arg_scope(alexnet_v2_arg_scope()):
-                alex_out = alexnet_v2(X, is_training)
+            with slim.arg_scope(self.alexnet_v2_arg_scope()):
+                alex_out = self.alexnet_v2(X, is_training)
                 flat_dim = np.product(alex_out.shape[1:]).value
                 conv_out = tf.reshape(alex_out, [-1, flat_dim])
 
@@ -280,7 +271,7 @@ class ConvModel(object):
         to assemble your reading comprehension system!
         :param qn_embeddings: embedding of question words, of size (batch_size, embedding_size)
         :param con_embeddings: embedding of context words, of size (batch_size, embedding_size)
-        :self.start_pred & self.end_pred: tensors of shape [batch_size, FLAGS.con_max_len]
+        :self.start_pred & self.end_pred: tensors of shape [batch_size, con_max_len]
                                           a probability distribution over context
         """
 
@@ -297,7 +288,7 @@ class ConvModel(object):
         :return:
         """
         self.loss = tf.nn.l2_loss(self.pred - self.y_placeholder)
-        if FLAGS.step_optimize :
+        if self.options["step_optimize"] :
             self.loss1 = tf.slice(self.pred - self.y_placeholder, [0,0], [-1, 1])
             self.loss2 = tf.slice(self.pred - self.y_placeholder, [0,1], [-1, 1])
             self.loss3 = tf.slice(self.pred - self.y_placeholder, [0,2], [-1, 1])
@@ -327,7 +318,7 @@ class ConvModel(object):
         # construct feed_dict
         input_feed = self.create_feed_dict(X_train, y_train, True)
 
-        if FLAGS.step_optimize :
+        if self.options["step_optimize"] :
             output_feed = [self.train_step1, self.train_step2, self.train_step3, self.loss, self.lr, self.global_step]
             _, _, _, loss, lr, gs = self.session.run(output_feed, feed_dict=input_feed)
             return loss, lr, gs
@@ -336,12 +327,8 @@ class ConvModel(object):
             _, loss, lr, gs = self.session.run(output_feed, feed_dict=input_feed)
             return loss, lr, gs
 
-    def get_model_path(self):
-        return SCRATCH_PATH + ("convmodel_speedmode_{}_convmode_{}_flowmode_{}/".format(
-            self.options['speedmode'], self.options['convmode'], self.options['flowmode']))
-
     def restore(self):
-        model_path = self.get_model_path()
+        model_path = get_model_path(**(self.options))
         if not os.path.exists(model_path):
             print('Error! Do not have saved parameter for {}'.format(model_path))
             sys.exit(-1)
@@ -395,26 +382,25 @@ class ConvModel(object):
         """
         Run 1 epoch. Train on training examples, evaluate on validation set.
         """
-        options = self.options
-        path = options['path']
+        path = self.options['path']
         train_losses = []
         numTrain = frameTrain.shape[0]
-        prog = Progbar(target=1 + int(numTrain / FLAGS.batch_size))
-        for i, frameBatch in enumerate(get_minibatches(frameTrain, FLAGS.batch_size)):
-            batch = loadData(frameBatch, **options)
+        prog = Progbar(target=1 + int(numTrain / self.options["batch_size"]))
+        for i, frameBatch in enumerate(get_minibatches(frameTrain, self.options["batch_size"])):
+            batch = loadData(frameBatch, **(self.options))
             loss, lr, gs = self.optimize(*batch)
             train_losses.append(loss)
-            if (self.global_step % FLAGS.print_every) == 0:
+            if (self.global_step % self.options["print_every"]) == 0:
                 logging.info("Iteration {0}: with minibatch training l2_loss = {1:.3g} and mse of {2:.2g}"\
-                      .format(self.global_step, loss, loss/FLAGS.batch_size))
+                      .format(self.global_step, loss, loss/options["batch_size"]))
             prog.update(i + 1, [("train loss", loss)], [("learning rate", lr), ("global step", gs)])
         total_train_mse = np.sum(train_losses)/numTrain
 
         val_losses = []
         numVal = frameVal.shape[0]
-        prog = Progbar(target=1 + int(numVal / FLAGS.batch_size))
-        for i, frameBatch in enumerate(get_minibatches(frameVal, FLAGS.batch_size)):
-            batch = loadData(frameBatch, **options)
+        prog = Progbar(target=1 + int(numVal / self.options["batch_size"]))
+        for i, frameBatch in enumerate(get_minibatches(frameVal, self.options["batch_size"])):
+            batch = loadData(frameBatch, **(self.options))
             loss = self.validate(*batch)
             val_losses.append(loss)
             prog.update(i + 1, [("validation loss", loss)])
@@ -440,9 +426,10 @@ class ConvModel(object):
         extra_update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
         with tf.control_dependencies(extra_update_ops):
             self.global_step = tf.Variable(0, trainable=False)
-            lr = tf.train.exponential_decay(FLAGS.learning_rate, self.global_step, FLAGS.decay_step, FLAGS.decay_rate, staircase=True)
+            lr = tf.train.exponential_decay(self.options["learning_rate"], self.global_step,
+                    self.options["decay_step"], self.options["decay_rate"], staircase=True)
             self.lr = lr
-            if FLAGS.step_optimize :
+            if self.options["step_optimize"] :
                 optimizer1 = tf.train.AdamOptimizer(self.lr)
                 optimizer2 = tf.train.AdamOptimizer(self.lr)
                 optimizer3 = tf.train.AdamOptimizer(self.lr)
@@ -463,8 +450,8 @@ class ConvModel(object):
         # y_val = np.reshape(vly_val, (-1, 1))
         # training
         min_val_mse = sys.maxint
-        for epoch in range(FLAGS.epochs):
-            logging.info("Epoch %d out of %d", epoch+1, FLAGS.epochs)
+        for epoch in range(self.options["epochs"]):
+            logging.info("Epoch %d out of %d", epoch+1, self.options["epochs"])
             total_train_mse, train_losses, total_val_mse, val_losses = \
                 self.run_epoch(frameTrain, frameVal)
             logging.info("Epoch {2}, Overall train mse = {0:.4g}, Overall val mse = {1:.4g}\n"\
@@ -472,11 +459,12 @@ class ConvModel(object):
             # save model weights
             if total_val_mse < min_val_mse:
                 min_val_mse = total_val_mse
-                model_path = self.get_model_path()
+                model_path = get_model_path(**(self.options))
                 if not os.path.exists(model_path):
                     os.makedirs(model_path)
                 logging.info("Saving model parameters of epoch {}...".format(epoch+1))
                 self.saver.save(self.session, model_path + "model.weights")
+                pickle.dump(self.options, open(model_path + "model.conf", "wb"))
             if plot_losses:
                 plt.plot(train_losses)
                 plt.plot(val_losses)
