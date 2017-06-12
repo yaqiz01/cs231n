@@ -163,7 +163,7 @@ def loadImg(rgb, **options):
     flowmode = options['flowmode']
     if flowmode in [2,3]:
         rgb = getAvgChannel(rgb, **options)
-    return rgb 
+    return rgb
 
 def loadInputX(prev, cur, **options):
     H,W,C = options['inputshape']
@@ -236,6 +236,7 @@ def polarflow(flow, **options):
     return np.concatenate((mag,ang), axis=-1)
 
 def predSpeed(im, prev, cur, labels, restored_model, **options):
+    mode = options['mode']
     path = options['path']
     model = options['model']
     speedmode = options['speedmode']
@@ -250,12 +251,15 @@ def predSpeed(im, prev, cur, labels, restored_model, **options):
         res = dict(vf=(vf, gtvf), wu=(wu, gtwu))
     elif model=='conv':
         vf, wu, af = restored_model.test(X_test)
-        wu = np.rad2deg(wu)
         gtvf = labels['vf'][-1]
-        gtwu = np.rad2deg(labels['wu'][-1])
+        gtwu = labels['wu'][-1]
         gtaf = labels['af'][-1]
+        if mode=='all':
+            wu = np.rad2deg(wu)
+        if mode=='all':
+            gtwu = np.rad2deg(gtwu)
         res = dict(vf=(vf, gtvf), wu=(wu, gtwu), af=(af, gtaf))
-    return im, res 
+    return im, res
 
 def trainSpeed(frameFns, **options):
     from convmodel import ConvModel

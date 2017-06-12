@@ -56,10 +56,12 @@ def restoreModel(**options):
     speedmode = options['speedmode']
     mode = options['mode']
     path = options['path']
+    if mode in ['testspeed']:
+        path = options['testpath']
     fn = '0000000001.png'
     im = cv2.imread(join(path, fn), cv2.IMREAD_COLOR)
     options = setInputShape(im, **options)
-    if mode == 'all':
+    if mode in ['all', 'testspeed']:
         if modelname=='conv':
             from convmodel import ConvModel
             model = ConvModel(options)
@@ -76,6 +78,9 @@ def play(framePaths, **options):
     includeflow, includeobj, includeimg = lookup(speedmode)
 
     path = options['path']
+    if mode in ['testspeed']:
+        path = options['testpath']
+        test_mses = {}
 
     print('Playing video {}'.format(path))
     files = [f for f in listdir(path) if isfile(join(path, f)) and f.endswith('.png')]
@@ -83,16 +88,15 @@ def play(framePaths, **options):
 
     if mode in ['loadmatch', 'all']:
         matches = mcread(path)
-    if mode in ['trainspeed', 'all']:
+    if mode in ['trainspeed', 'all', 'testspeed']:
         headers = loadHeader('{0}/../oxts'.format(path))
-    if mode in ['trainspeed', 'all']:
         im = cv2.imread(join(path, files[0]), cv2.IMREAD_COLOR)
         options = setInputShape(im, **options)
     labels = dict(vf=[], wu=[], af=[])
     img = None
     icmp = None
     porg = None
-    if (mode not in ['trainspeed']):
+    if (mode not in ['trainspeed', 'testspeed']):
       plt.figure(dpi=140)
     for i, impath in enumerate(files):
         if mode in ['trainspeed']:
@@ -148,6 +152,15 @@ def play(framePaths, **options):
             sp = 30
             sr = 30
             im = cv2.pyrMeanShiftFiltering(im, sp, sr, maxLevel=1)
+        elif mode == 'testspeed':
+            im, ans = predSpeed(im, porg, org, labels, restored_model, **options)
+            for k in ans:
+                if k not in test_mses:
+                    test_mses[k] = []
+                pred, gtruth = ans[k]
+                mse = (pred - gtruth) ** 2
+                test_mses[k].append(mse)
+            loadLabels(fn, headers, labels, '{0}/../oxts'.format(path))
         elif mode == 'all':
             h,w,_ = im.shape
             h = 200
@@ -194,7 +207,7 @@ def play(framePaths, **options):
             loadLabels(fn, headers, labels, '{0}/../oxts'.format(path))
         porg = org.copy()
 
-        if mode in ['trainspeed']:
+        if mode in ['trainspeed', 'testspeed']:
             continue
 
         im = cv2.cvtColor(im, cv2.COLOR_BGR2RGB)
@@ -225,6 +238,10 @@ def play(framePaths, **options):
         plt.pause(options['delay'])
         if imgax is not None:
             imgax.clear()
+
+    if mode in ['testspeed', 'all']:
+        for k in test_mses:
+            print('Overall averaged test mse {}: {}'.format(k, np.sum(test_mses[k])/len(test_mses[k])))
     return options
 
 def demo(**options):
@@ -254,6 +271,8 @@ def main():
     parser = argparse.ArgumentParser(description='Visualize a sequence of images as video')
     parser.add_argument('--demo', dest='demo', action='store_true',default=False,
         help='Demo mode')
+    parser.add_argument('--testpath', dest='testpath', action='store', default='',
+            help='Specify path for testing of speed detection')
     parser.add_argument('--path', dest='path', action='store', default='',
             help='Specify path for the image files')
     parser.add_argument('--delay', dest='delay', nargs='?', default=0.01, type=float,
@@ -299,11 +318,13 @@ def main():
 
     if (options.path==''):
         options.path = '{0}2011_09_26-{1}/data'.format(KITTI_PATH, 1)
+    if (options.testpath==''):
+        options.testpath = '{0}2011_09_26{1}/data'.format(KITTI_PATH, '_drive_0117_sync')
 
     options = vars(options)
     if (options['demo']):
         options['mode'] = 'all'
-    if options['mode'] in ['all']:
+    if options['mode'] in ['all', 'testspeed']:
         global restored_model
         restored_model = restoreModel(**options)
     if (options['demo']):

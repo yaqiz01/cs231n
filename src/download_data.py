@@ -10,6 +10,10 @@ sample_links = [
     'http://kitti.is.tue.mpg.de/kitti/raw_data/2011_09_26_drive_0002/2011_09_26_drive_0002_sync.zip'
 ]
 
+test_links = [
+    'http://kitti.is.tue.mpg.de/kitti/raw_data/2011_09_26_drive_0117/2011_09_26_drive_0117_sync.zip'
+]
+
 full_links = [
     'http://kitti.is.tue.mpg.de/kitti/raw_data/2011_09_26_drive_0001/2011_09_26_drive_0001_sync.zip',
     'http://kitti.is.tue.mpg.de/kitti/raw_data/2011_09_26_drive_0002/2011_09_26_drive_0002_sync.zip',
@@ -43,9 +47,11 @@ def call(cmd):
    process = subprocess.call(cmd, shell=True)
 
 def download(**options):
+    test = options['test']
     sample = options['sample']
     path = options['path']
     if sample: links = sample_links
+    elif test: links = test_links
     else: links = full_links
     for link in links:
         name = link.split('/')[-1].split('.zip')[0]
@@ -69,6 +75,8 @@ def main():
             help='Specify path for kitti')
     parser.add_argument('--sample', dest='sample', action='store_true',default=False,
         help='Download sample data')
+    parser.add_argument('--test', dest='test', action='store_true',default=False,
+        help='Download test data')
     (options, args) = parser.parse_known_args()
 
     options = vars(options)
