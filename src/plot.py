@@ -138,19 +138,21 @@ def plot_lr_sweep(**options):
     fig, ax = plt.subplots(figsize=(4,3))
 
     logs_filtered = list(filter(lambda log: 'lr_' in log, logs))
-    
-    x = list(map(lambda log: results[log]['learning_rate'], logs_filtered))
+    logs_filtered.sort(key=lambda log : float(results[log]['learning_rate']))
+
+    x = list(map(lambda log: float(results[log]['learning_rate']), logs_filtered))
     y_train = list(map(lambda log: results[log]['train_mse'][-1], logs_filtered))
     y_val = list(map(lambda log: results[log]['val_mse'][-1], logs_filtered))
 
-    ax.plot(x, y_train, 'bo', label='train_mse')
-    ax.plot(x, y_val, 'go', label='val_mse')
+    ax.plot(x, y_train, 'b', label='train_mse')
+    ax.plot(x, y_val, 'b--', label='val_mse')
     
     ax.set_title('learning rate sweep')
     ax.grid(True)
     ax.set_xlabel('Learning Rate')
     ax.set_xscale('log')
-    ax.legend(loc='lower right')
+    #ax.set_xlim(-1, float(max(x))+0.05)
+    ax.legend(loc='best')
     plt.savefig('{}/param_tuning_lr.png'.format(options['path']))
 
 
