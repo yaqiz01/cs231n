@@ -63,12 +63,20 @@ def restoreModel(**options):
     options = setInputShape(im, **options)
     if mode in ['all', 'testspeed']:
         if modelname=='conv':
-            from convmodel import ConvModel
+            from convmodel import ConvModel, get_model_path
+            model_path = get_model_path(**options)
+            if isfile(model_path + "model.conf"):
+                restored_options = pickle.load(open(model_path + "model.conf", "rb" ))
+                restored_options['mode'] = options['mode']
+                restored_options['numframe'] = options['numframe']
+                options = restored_options
+            else:
+                print("No stored configuration available! use current configuration!")
             model = ConvModel(options)
             model.restore()
         elif modelname=='linear':
             pass #TODO
-    return model
+    return model, options
 
 def play(framePaths, **options):
     model = options['model']
@@ -312,8 +320,28 @@ def main():
                     3 - polar avgflow ')
     parser.add_argument('--cpu', dest='cpu', action='store_true',default=False,
         help='use 1 cpu to trainspeed')
-    parser.add_argument('--pcttrain', dest='pcttrain', nargs='?', default=0.8, type=float,
+    parser.add_argument('--pcttrain', dest='pcttrain', nargs='?', default=0.7, type=float,
             help='Percentage of frames for training')
+    parser.add_argument('--valmode', dest='valmode', nargs='?', default=1, type=int,
+            help='valmode')
+    parser.add_argument('--learning_rate', dest='learning_rate', nargs='?', default=0.001, type=float,
+            help='Learning rate')
+    parser.add_argument('--dropout', dest='dropout', nargs='?', default=0.5, type=float,
+            help='Dropout rate')
+    parser.add_argument('--epochs', dest='epochs', nargs='?', default=15, type=int,
+            help='Number of epochs to train')
+    parser.add_argument('--batch_size', dest='batch_size', nargs='?', default=16, type=int,
+            help='Batch size to use during training. ')
+    parser.add_argument('--decay_step', dest='decay_step', nargs='?', default=100, type=int,
+            help='Number of steps between decays.')
+    parser.add_argument('--decay_rate', dest='decay_rate', nargs='?', default=0.95, type=float,
+            help='Decay rate.')
+    parser.add_argument('--print_every', dest='print_every', nargs='?', default=100, type=int,
+            help='How many iterations to do per print')
+    parser.add_argument('--weight_init', dest='weight_init', default="xavier",
+            help='tf method for weight initialization')
+    parser.add_argument('--step_optimize', dest='step_optimize', default=False, nargs='?',
+            type=float, help='tf method for weight initialization')
     (options, args) = parser.parse_known_args()
 
     if (options.path==''):
@@ -326,13 +354,13 @@ def main():
         options['mode'] = 'all'
     if options['mode'] in ['all', 'testspeed']:
         global restored_model
-        restored_model = restoreModel(**options)
+        restored_model,options = restoreModel(**options)
     if (options['demo']):
         while True:
             demo(**options)
         return
 
-    if (options['mode']=='trainspeed'):
+    if (options['mode'] in ['trainspeed', 'testspeed']):
         for k in options:
             print('Configuration: {}={}'.format(k,options[k]))
         trainModel(**options)

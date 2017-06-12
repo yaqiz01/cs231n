@@ -265,6 +265,7 @@ def trainSpeed(frameFns, **options):
     from convmodel import ConvModel
     pcttrain = options['pcttrain']
     model = options['model']
+    valmode = options['valmode']
     print('Start training speed ...')
 
     frameFns = np.array(frameFns)
@@ -272,7 +273,8 @@ def trainSpeed(frameFns, **options):
     numTrain = int(round(N*pcttrain))
     mask = np.zeros(N, dtype=bool)
     mask[:numTrain] = True
-    np.random.shuffle(mask)
+    if valmode==0:
+        np.random.shuffle(mask)
     frameTrain = frameFns[mask]
     frameVal = frameFns[~mask]
     if model=='linear':
