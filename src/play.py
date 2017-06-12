@@ -269,6 +269,8 @@ def trainModel(**options):
     dirs = [join(KITTI_PATH, d) for d in listdir(KITTI_PATH) if isdir(join(KITTI_PATH, d))]
     for vdir in dirs:
         options['path'] = '{0}/data/'.format(vdir)
+        if options['path']==options['testpath']+'/':
+            continue
         options = play(framePaths, **options)
         sys.stdout.flush()
     print('Configuration: num_frames={}'.format(len(framePaths)))
