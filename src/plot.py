@@ -62,9 +62,9 @@ def linestyle(d):
 def color(d):
     if int(d['speedmode'])==0: return 'r' 
     elif int(d['speedmode'])==1: return 'g'
-    elif int(d['speedmode'])==2: return 'salmon'
+    elif int(d['speedmode'])==2: return 'orange'
     elif int(d['speedmode'])==3: return 'royalblue'
-    elif int(d['speedmode'])==4: return 'c'
+    elif int(d['speedmode'])==4: return 'mediumorchid'
 
 def to_lookup(log):
     return lookup(results[log])
@@ -117,7 +117,7 @@ def plot_epoch(logs, figsize, **options):
 def plot_input_type(**options):
     options["toshow"] = "valmode=1,convmode=0,dropout=0.5,flowmode=0"
     logs = [log for log, _ in filterby(**options)[True]]
-    plot_epoch(logs, figsize=(9,5), **options)
+    plot_epoch(logs, figsize=(9,2.5), **options)
     if options['logscale']:
         plt.ylim(ymax=60)
     else:
