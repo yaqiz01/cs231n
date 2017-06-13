@@ -116,27 +116,27 @@ class ConvModel(object):
         with tf.variable_scope("conv_2"):
             conv2_W = tf.Variable(self.pretrained_weights['conv2'][0])
             conv2_b = tf.Variable(self.pretrained_weights['conv2'][1])
-            X = conv_helper(self, X, conv2_W, conv2_b, group=2)
+            X = self.conv_helper(X, conv2_W, conv2_b, group=2)
             X = tf.layers.max_pooling2d(X, 3, 2)
         with tf.variable_scope("conv_3"):
             conv3_W = tf.Variable(self.pretrained_weights['conv3'][0])
             conv3_b = tf.Variable(self.pretrained_weights['conv3'][1])
-            X = conv_helper(self, X, conv3_W, conv3_b, group=1)
+            X = self.conv_helper(X, conv3_W, conv3_b, group=1)
         with tf.variable_scope("conv_4"):
             conv4_W = tf.Variable(self.pretrained_weights['conv4'][0])
             conv4_b = tf.Variable(self.pretrained_weights['conv4'][1])
-            X = conv_helper(self, X, conv4_W, conv4_b, group=2)
+            X = self.conv_helper(X, conv4_W, conv4_b, group=2)
         with tf.variable_scope("conv_5"):
             conv5_W = tf.Variable(self.pretrained_weights['conv5'][0])
             conv5_b = tf.Variable(self.pretrained_weights['conv5'][1])
-            X = conv_helper(self, X, conv5_W, conv5_b, group=2)
+            X = self.conv_helper(X, conv5_W, conv5_b, group=2)
             X = tf.layers.max_pooling2d(X, 3, 2)
         with tf.variable_scope("fc_6"):
             X = tf.layers.conv2d(X, 4096, 5, activation=tf.nn.relu, kernel_initializer=init)
-            X = tf.layers.dropout(X, rate=options["dropout"], training=is_training)
+            X = tf.layers.dropout(X, rate=self.options["dropout"], training=is_training)
         with tf.variable_scope("fc_7"):
             X = tf.layers.conv2d(X, 4096, 1, activation=tf.nn.relu, kernel_initializer=init)
-            X = tf.layers.dropout(X, rate=options["dropout"], training=is_training)
+            X = tf.layers.dropout(X, rate=self.options["dropout"], training=is_training)
         return X
 
     def alex_net(self, X, is_training):
@@ -378,7 +378,7 @@ class ConvModel(object):
 
         return loss
 
-    def run_epoch(self, frameTrain, frameVal):
+    def run_epoch(self, epoch, frameTrain, frameVal):
         """
         Run 1 epoch. Train on training examples, evaluate on validation set.
         """
@@ -397,14 +397,18 @@ class ConvModel(object):
         total_train_mse = np.sum(train_losses)/numTrain
 
         val_losses = []
-        numVal = frameVal.shape[0]
-        prog = Progbar(target=1 + int(numVal / self.options["batch_size"]))
-        for i, frameBatch in enumerate(get_minibatches(frameVal, self.options["batch_size"])):
-            batch = loadData(frameBatch, **(self.options))
-            loss = self.validate(*batch)
-            val_losses.append(loss)
-            prog.update(i + 1, [("validation loss", loss)])
-        total_val_mse = np.sum(val_losses)/numVal
+        if epoch >= 11 :
+            numVal = frameVal.shape[0]
+            prog = Progbar(target=1 + int(numVal / self.options["batch_size"]))
+            for i, frameBatch in enumerate(get_minibatches(frameVal, self.options["batch_size"])):
+                batch = loadData(frameBatch, **(self.options))
+                loss = self.validate(*batch)
+                val_losses.append(loss)
+                prog.update(i + 1, [("validation loss", loss)])
+            total_val_mse = np.sum(val_losses)/numVal
+        else : 
+            total_val_mse = -1
+
         return total_train_mse, train_losses, total_val_mse, val_losses
 
     def train(self, frameTrain, frameVal):
@@ -452,25 +456,31 @@ class ConvModel(object):
         min_val_mse = sys.maxint
         for epoch in range(self.options["epochs"]):
             logging.info("Epoch %d out of %d", epoch+1, self.options["epochs"])
-            total_train_mse, train_losses, total_val_mse, val_losses = \
-                self.run_epoch(frameTrain, frameVal)
-            logging.info("Epoch {2}, Overall train mse = {0:.4g}, Overall val mse = {1:.4g}\n"\
-                  .format(total_train_mse, total_val_mse, epoch+1))
-            # save model weights
-            if total_val_mse < min_val_mse:
-                min_val_mse = total_val_mse
-                model_path = get_model_path(**(self.options))
-                if not os.path.exists(model_path):
-                    os.makedirs(model_path)
-                logging.info("Saving model parameters of epoch {}...".format(epoch+1))
-                self.saver.save(self.session, model_path + "model.weights")
-                pickle.dump(self.options, open(model_path + "model.conf", "wb"))
-            if plot_losses:
-                plt.plot(train_losses)
-                plt.plot(val_losses)
-                plt.grid(True)
-                plt.title('Epoch {} Loss'.format(e+1))
-                plt.xlabel('minibatch number')
-                plt.ylabel('minibatch loss')
-                plt.show()
+            if epoch >= 11 :
+                total_train_mse, train_losses, total_val_mse, val_losses = \
+                    self.run_epoch(epoch, frameTrain, frameVal)
+                logging.info("Epoch {2}, Overall train mse = {0:.4g}, Overall val mse = {1:.4g}\n"\
+                      .format(total_train_mse, total_val_mse, epoch+1))
+                # save model weights
+                if total_val_mse < min_val_mse:
+                    min_val_mse = total_val_mse
+                    model_path = get_model_path(**(self.options))
+                    if not os.path.exists(model_path):
+                        os.makedirs(model_path)
+                    logging.info("Saving model parameters of epoch {}...".format(epoch+1))
+                    self.saver.save(self.session, model_path + "model.weights")
+                    pickle.dump(self.options, open(model_path + "model.conf", "wb"))
+                if plot_losses:
+                    plt.plot(train_losses)
+                    plt.plot(val_losses)
+                    plt.grid(True)
+                    plt.title('Epoch {} Loss'.format(e+1))
+                    plt.xlabel('minibatch number')
+                    plt.ylabel('minibatch loss')
+                    plt.show()
+            else :
+                total_train_mse, train_losses, _, _ = \
+                    self.run_epoch(epoch, frameTrain, frameVal)
+                logging.info("Epoch {1}, Overall train mse = {0:.4g}\n"\
+                      .format(total_train_mse, epoch+1))
         # return (total_val_mse, 0, 0, 0)
