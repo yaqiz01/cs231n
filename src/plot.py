@@ -134,6 +134,52 @@ def plot_sep_loss(**options):
         plt.gcf().subplots_adjust(bottom=0.15, top=0.75)
         plt.savefig('{}/result_{}.png'.format(options['path'], log.replace('result_','').replace('.txt','')))
 
+def plot_lr_sweep(**options):
+    mode = "learning_rate"
+    logscale = options['logscale']
+    plt.clf()
+    fig, ax = plt.subplots(figsize=(4,3))
+
+    neq = ['result_20170610185524.txt', 'result_20170612084924_lr_0.001.txt']
+    options['toshow'] = \
+            "valmode=1,convmode=1,speedmode=0,dropout=0.6,flowmode=2,rseg=100,cseg=300,name!={}".format(neq)
+    filtered_res = filterby(**options)
+    logs_filtered_res = [log for log, info in filtered_res[True]]
+    logs_filtered_res.sort(key=lambda log : float(results[log][mode]))
+
+    options['toshow'] = \
+            "valmode=1,convmode=0,speedmode=0,dropout=0.2,flowmode=2,rseg=100,cseg=300,name!={}".format(neq)
+    filtered_baseline = filterby(**options)
+    logs_filtered_baseline = [log for log, info in filtered_baseline[True]]
+    logs_filtered_baseline.sort(key=lambda log : float(results[log][mode]))
+
+
+    x_baseline = list(map(lambda log: float(results[log][mode]), logs_filtered_baseline))
+    y_train_baseline = list(map(lambda log: results[log]['train_mse'][-1], logs_filtered_baseline))
+    y_val_baseline = list(map(lambda log: results[log]['val_mse'][-1], logs_filtered_baseline))
+
+    x_res = list(map(lambda log: float(results[log][mode]), logs_filtered_res))
+    y_train_res = list(map(lambda log: results[log]['train_mse'][-1], logs_filtered_res))
+    y_val_res = list(map(lambda log: results[log]['val_mse'][-1], logs_filtered_res))
+
+
+    ax.plot(x_baseline, y_train_baseline, 'bo-', label='train_mse_baseline')
+    ax.plot(x_baseline, y_val_baseline, 'bo--', label='val_mse_baseline')
+    ax.plot(x_res, y_train_res, 'go-', label='train_mse_resnet')
+    ax.plot(x_res, y_val_res, 'go--', label='val_mse_resnet')
+    
+    # ax.set_title(mode + ' Sweep')
+    ax.grid(True, ls='dashed')
+    # ax.set_xlabel(mode)
+    ax.set_xscale('log')
+    ax.set_yscale('log')
+    ax.set_ylim(ymax=1000)
+    #ax.set_xlim(-1, float(max(x))+0.05)
+    ax.legend(loc='best')
+    plt.savefig('{}/param_tuning_lr_{}.png'.format(options['path'], mode))
+
+
+
 def plot_param_sweep(mode, **options):
     logscale = options['logscale']
     plt.clf()
@@ -347,7 +393,7 @@ def main():
             elif plot == 'sep_loss':
                 plot_sep_loss(**options)
             elif plot == 'learning_rate':
-                plot_param_sweep(plot, **options)
+                plot_lr_sweep(**options)
             elif plot == 'dropout':
                 plot_param_sweep(plot, **options)
             elif plot == 'batch_size':
