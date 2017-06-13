@@ -266,7 +266,8 @@ def filterby(**options):
         if len(results[log]['train_mse']) > 0:
             info += ' train_mse={}'.format(results[log]['train_mse'][-1])
         if len(results[log]['val_mse']) > 0:
-            val_mse = results[log]['val_mse'][-1]
+            # val_mse = results[log]['val_mse'][-1]
+            val_mse = min(results[log]['val_mse'])
             info += ' val_mse={}'.format(val_mse)
         info += ' {}'.format(lookup(results[log]))
         # if 'weight_init' in results[log]:
