@@ -378,7 +378,7 @@ class ConvModel(object):
 
         return loss
 
-    def run_epoch(self, frameTrain, frameVal):
+    def run_epoch(self, epoch, frameTrain, frameVal):
         """
         Run 1 epoch. Train on training examples, evaluate on validation set.
         """
@@ -397,14 +397,18 @@ class ConvModel(object):
         total_train_mse = np.sum(train_losses)/numTrain
 
         val_losses = []
-        numVal = frameVal.shape[0]
-        prog = Progbar(target=1 + int(numVal / self.options["batch_size"]))
-        for i, frameBatch in enumerate(get_minibatches(frameVal, self.options["batch_size"])):
-            batch = loadData(frameBatch, **(self.options))
-            loss = self.validate(*batch)
-            val_losses.append(loss)
-            prog.update(i + 1, [("validation loss", loss)])
-        total_val_mse = np.sum(val_losses)/numVal
+        if epoch >= 11 :
+            numVal = frameVal.shape[0]
+            prog = Progbar(target=1 + int(numVal / self.options["batch_size"]))
+            for i, frameBatch in enumerate(get_minibatches(frameVal, self.options["batch_size"])):
+                batch = loadData(frameBatch, **(self.options))
+                loss = self.validate(*batch)
+                val_losses.append(loss)
+                prog.update(i + 1, [("validation loss", loss)])
+            total_val_mse = np.sum(val_losses)/numVal
+        else : 
+            total_val_mse = -1
+
         return total_train_mse, train_losses, total_val_mse, val_losses
 
     def train(self, frameTrain, frameVal):
@@ -452,25 +456,31 @@ class ConvModel(object):
         min_val_mse = sys.maxint
         for epoch in range(self.options["epochs"]):
             logging.info("Epoch %d out of %d", epoch+1, self.options["epochs"])
-            total_train_mse, train_losses, total_val_mse, val_losses = \
-                self.run_epoch(frameTrain, frameVal)
-            logging.info("Epoch {2}, Overall train mse = {0:.4g}, Overall val mse = {1:.4g}\n"\
-                  .format(total_train_mse, total_val_mse, epoch+1))
-            # save model weights
-            if total_val_mse < min_val_mse:
-                min_val_mse = total_val_mse
-                model_path = get_model_path(**(self.options))
-                if not os.path.exists(model_path):
-                    os.makedirs(model_path)
-                logging.info("Saving model parameters of epoch {}...".format(epoch+1))
-                self.saver.save(self.session, model_path + "model.weights")
-                pickle.dump(self.options, open(model_path + "model.conf", "wb"))
-            if plot_losses:
-                plt.plot(train_losses)
-                plt.plot(val_losses)
-                plt.grid(True)
-                plt.title('Epoch {} Loss'.format(e+1))
-                plt.xlabel('minibatch number')
-                plt.ylabel('minibatch loss')
-                plt.show()
+            if epoch >= 11 :
+                total_train_mse, train_losses, total_val_mse, val_losses = \
+                    self.run_epoch(epoch, frameTrain, frameVal)
+                logging.info("Epoch {2}, Overall train mse = {0:.4g}, Overall val mse = {1:.4g}\n"\
+                      .format(total_train_mse, total_val_mse, epoch+1))
+                # save model weights
+                if total_val_mse < min_val_mse:
+                    min_val_mse = total_val_mse
+                    model_path = get_model_path(**(self.options))
+                    if not os.path.exists(model_path):
+                        os.makedirs(model_path)
+                    logging.info("Saving model parameters of epoch {}...".format(epoch+1))
+                    self.saver.save(self.session, model_path + "model.weights")
+                    pickle.dump(self.options, open(model_path + "model.conf", "wb"))
+                if plot_losses:
+                    plt.plot(train_losses)
+                    plt.plot(val_losses)
+                    plt.grid(True)
+                    plt.title('Epoch {} Loss'.format(e+1))
+                    plt.xlabel('minibatch number')
+                    plt.ylabel('minibatch loss')
+                    plt.show()
+            else :
+                total_train_mse, train_losses, _, _ = \
+                    self.run_epoch(epoch, frameTrain, frameVal)
+                logging.info("Epoch {1}, Overall train mse = {0:.4g}\n"\
+                      .format(total_train_mse, epoch+1))
         # return (total_val_mse, 0, 0, 0)
