@@ -181,10 +181,10 @@ def plot_lr_sweep(**options):
     y_val_res = list(map(lambda log: results[log]['val_mse'][-1], logs_filtered_res))
 
 
-    ax.plot(x_baseline, y_train_baseline, 'bo-', label='train_mse_baseline')
-    ax.plot(x_baseline, y_val_baseline, 'bo--', label='val_mse_baseline')
-    ax.plot(x_res, y_train_res, 'go-', label='train_mse_resnet')
-    ax.plot(x_res, y_val_res, 'go--', label='val_mse_resnet')
+    ax.plot(x_baseline, y_train_baseline, color='salmon', marker='o', label='train_mse_baseline')
+    ax.plot(x_baseline, y_val_baseline, color='salmon', marker='o', linestyle='dashed', label='val_mse_baseline')
+    ax.plot(x_res, y_train_res, color='c', marker='o', label='train_mse_resnet')
+    ax.plot(x_res, y_val_res, color='c', linestyle='dashed', marker='o', label='val_mse_resnet')
     
     # ax.set_title(mode + ' Sweep')
     ax.grid(True, ls='dashed')
@@ -196,30 +196,32 @@ def plot_lr_sweep(**options):
     ax.legend(loc='best')
     plt.savefig('{}/param_tuning_lr_{}.png'.format(options['path'], mode))
 
-
-
-def plot_param_sweep(mode, **options):
+def plot_dropout_sweep(**options):
+    mode = "dropout"
     logscale = options['logscale']
     plt.clf()
     fig, ax = plt.subplots(figsize=(4,3))
 
-    logs_filtered = list(filter(lambda log: 'lr_' in log, logs))
+    neq = ['result_20170612084924_lr_0.001.txt', 'result_20170611230624.txt']
+    options['toshow'] = \
+            "convmode=0,speedmode=0,learning_rate=0.001,flowmode=2,rseg=100,cseg=300,valmode=1,name!={},name!={}".format(neq[0],neq[1])
+    filtered = filterby(**options)
+    logs_filtered = [log for log, info in filtered[True]]
     logs_filtered.sort(key=lambda log : float(results[log][mode]))
 
     x = list(map(lambda log: float(results[log][mode]), logs_filtered))
     y_train = list(map(lambda log: results[log]['train_mse'][-1], logs_filtered))
     y_val = list(map(lambda log: results[log]['val_mse'][-1], logs_filtered))
 
-    ax.plot(x, y_train, 'b', label='train_mse')
-    ax.plot(x, y_val, 'b--', label='val_mse')
-    
+    ax.plot(x, y_train, color='salmon', marker='o', label='train_mse_baseline')
+    ax.plot(x, y_val, color='salmon', marker='o', linestyle='dashed', label='val_mse_baseline')
+
     # ax.set_title(mode + ' Sweep')
     ax.grid(True, ls='dashed')
     # ax.set_xlabel(mode)
-    ax.set_xscale('log')
     #ax.set_xlim(-1, float(max(x))+0.05)
     ax.legend(loc='best')
-    plt.savefig('{}/param_tuning_lr_{}.png'.format(options['path'], mode))
+    plt.savefig('{}/param_{}.png'.format(options['path'], mode))
 
 def plot_downsample(**options):
     fig, axes = plt.subplots(2,1, figsize=(4.5,6))
@@ -413,7 +415,7 @@ def main():
             elif plot == 'learning_rate':
                 plot_lr_sweep(**options)
             elif plot == 'dropout':
-                plot_param_sweep(plot, **options)
+                plot_dropout_sweep(**options)
             elif plot == 'batch_size':
                 plot_batch_size(**options)
             elif plot == 'downsample':
