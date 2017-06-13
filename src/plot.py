@@ -62,7 +62,7 @@ def linestyle(d):
 def color(d):
     if int(d['speedmode'])==0: return 'r' 
     elif int(d['speedmode'])==1: return 'g'
-    elif int(d['speedmode'])==2: return 'b'
+    elif int(d['speedmode'])==2: return 'salmon'
     elif int(d['speedmode'])==3: return 'royalblue'
     elif int(d['speedmode'])==4: return 'c'
 
@@ -78,9 +78,9 @@ def sort_logs(logs, key=None):
     else:
         return sorted(logs, key = partial(to_key, key=key))
 
-def plot_all_loss(**options):
+def plot_epoch(logs, figsize, **options):
     logscale = options['logscale']
-    fig, (ax1, ax2) = plt.subplots(1,2, figsize=(9,2.5), sharey=True)
+    fig, (ax1, ax2) = plt.subplots(1,2, figsize=figsize, sharey=True)
     handles = []
     for log in logs:
         ls = linestyle(results[log])
@@ -107,14 +107,29 @@ def plot_all_loss(**options):
         else:
             handles += (ax2.plot(results[log]['epoch'], results[log]['val_mse'], label=label,
                 color=cl, linestyle=ls))
-    ax2.set_ylim([0,max(results[log]['val_mse'])+20])
     ax2.set_title('val_loss')
     ax2.grid(True, ls='dashed')
     ax2.set_xlabel('epoch')
     ax2.legend(handles=handles, loc='center left', bbox_to_anchor=(1, 0.5))
     fig.tight_layout()
     fig.subplots_adjust(bottom=0.2, top=0.85, right=0.7, left=0.05)
+
+def plot_input_type(**options):
+    options["toshow"] = "valmode=1,convmode=0,dropout=0.5,flowmode=0"
+    logs = [log for log, _ in filterby(**options)[True]]
+    plot_epoch(logs, figsize=(9,5), **options)
+    if options['logscale']:
+        plt.ylim(ymax=60)
+    else:
+        plt.ylim(ymax=60)
+    plt.savefig('{}/result_input_type.png'.format(options['path']))
+    plt.show()
+
+def plot_all_loss(**options):
+    plot_epoch(logs, figsize=(9,2.5), **options)
+    plt.ylim([0,100])
     plt.savefig('{}/result_all.png'.format(options['path']))
+    plt.show()
 
 def plot_sep_loss(**options):
     plt.clf()
@@ -134,28 +149,76 @@ def plot_sep_loss(**options):
         plt.gcf().subplots_adjust(bottom=0.15, top=0.75)
         plt.savefig('{}/result_{}.png'.format(options['path'], log.replace('result_','').replace('.txt','')))
 
-def plot_param_sweep(mode, **options):
+def plot_lr_sweep(**options):
+    mode = "learning_rate"
     logscale = options['logscale']
     plt.clf()
     fig, ax = plt.subplots(figsize=(4,3))
 
-    logs_filtered = list(filter(lambda log: 'lr_' in log, logs))
+    neq = ['result_20170610185524.txt', 'result_20170612084924_lr_0.001.txt']
+    options['toshow'] = \
+            "valmode=1,convmode=1,speedmode=0,dropout=0.6,flowmode=2,rseg=100,cseg=300,name!={}".format(neq)
+    filtered_res = filterby(**options)
+    logs_filtered_res = [log for log, info in filtered_res[True]]
+    logs_filtered_res.sort(key=lambda log : float(results[log][mode]))
+
+    options['toshow'] = \
+            "valmode=1,convmode=0,speedmode=0,dropout=0.2,flowmode=2,rseg=100,cseg=300,name!={}".format(neq)
+    filtered_baseline = filterby(**options)
+    logs_filtered_baseline = [log for log, info in filtered_baseline[True]]
+    logs_filtered_baseline.sort(key=lambda log : float(results[log][mode]))
+
+
+    x_baseline = list(map(lambda log: float(results[log][mode]), logs_filtered_baseline))
+    y_train_baseline = list(map(lambda log: results[log]['train_mse'][-1], logs_filtered_baseline))
+    y_val_baseline = list(map(lambda log: results[log]['val_mse'][-1], logs_filtered_baseline))
+
+    x_res = list(map(lambda log: float(results[log][mode]), logs_filtered_res))
+    y_train_res = list(map(lambda log: results[log]['train_mse'][-1], logs_filtered_res))
+    y_val_res = list(map(lambda log: results[log]['val_mse'][-1], logs_filtered_res))
+
+
+    ax.plot(x_baseline, y_train_baseline, color='salmon', marker='o', label='train_mse_baseline')
+    ax.plot(x_baseline, y_val_baseline, color='salmon', marker='o', linestyle='dashed', label='val_mse_baseline')
+    ax.plot(x_res, y_train_res, color='c', marker='o', label='train_mse_resnet')
+    ax.plot(x_res, y_val_res, color='c', linestyle='dashed', marker='o', label='val_mse_resnet')
+    
+    # ax.set_title(mode + ' Sweep')
+    ax.grid(True, ls='dashed')
+    # ax.set_xlabel(mode)
+    ax.set_xscale('log')
+    ax.set_yscale('log')
+    ax.set_ylim(ymax=1000)
+    #ax.set_xlim(-1, float(max(x))+0.05)
+    ax.legend(loc='best')
+    plt.savefig('{}/param_tuning_lr_{}.png'.format(options['path'], mode))
+
+def plot_dropout_sweep(**options):
+    mode = "dropout"
+    logscale = options['logscale']
+    plt.clf()
+    fig, ax = plt.subplots(figsize=(4,3))
+
+    neq = ['result_20170612084924_lr_0.001.txt', 'result_20170611230624.txt']
+    options['toshow'] = \
+            "convmode=0,speedmode=0,learning_rate=0.001,flowmode=2,rseg=100,cseg=300,valmode=1,name!={},name!={}".format(neq[0],neq[1])
+    filtered = filterby(**options)
+    logs_filtered = [log for log, info in filtered[True]]
     logs_filtered.sort(key=lambda log : float(results[log][mode]))
 
     x = list(map(lambda log: float(results[log][mode]), logs_filtered))
     y_train = list(map(lambda log: results[log]['train_mse'][-1], logs_filtered))
     y_val = list(map(lambda log: results[log]['val_mse'][-1], logs_filtered))
 
-    ax.plot(x, y_train, 'b', label='train_mse')
-    ax.plot(x, y_val, 'b--', label='val_mse')
-    
+    ax.plot(x, y_train, color='salmon', marker='o', label='train_mse_baseline')
+    ax.plot(x, y_val, color='salmon', marker='o', linestyle='dashed', label='val_mse_baseline')
+
     # ax.set_title(mode + ' Sweep')
     ax.grid(True, ls='dashed')
     # ax.set_xlabel(mode)
-    ax.set_xscale('log')
     #ax.set_xlim(-1, float(max(x))+0.05)
     ax.legend(loc='best')
-    plt.savefig('{}/param_tuning_lr_{}.png'.format(options['path'], mode))
+    plt.savefig('{}/param_{}.png'.format(options['path'], mode))
 
 def plot_downsample(**options):
     fig, axes = plt.subplots(2,1, figsize=(4.5,6))
@@ -347,15 +410,17 @@ def main():
             elif plot == 'sep_loss':
                 plot_sep_loss(**options)
             elif plot == 'learning_rate':
-                plot_param_sweep(plot, **options)
+                plot_lr_sweep(**options)
             elif plot == 'dropout':
-                plot_param_sweep(plot, **options)
+                plot_dropout_sweep(**options)
             elif plot == 'batch_size':
                 plot_batch_size(**options)
             elif plot == 'downsample':
                 plot_downsample(**options)
             elif plot == 'valsample':
                 plot_valsample(**options)
+            elif plot == 'input_type':
+                plot_input_type(**options)
 
 if __name__ == "__main__":
     main()
