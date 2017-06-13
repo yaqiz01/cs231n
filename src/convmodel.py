@@ -116,27 +116,27 @@ class ConvModel(object):
         with tf.variable_scope("conv_2"):
             conv2_W = tf.Variable(self.pretrained_weights['conv2'][0])
             conv2_b = tf.Variable(self.pretrained_weights['conv2'][1])
-            X = conv_helper(self, X, conv2_W, conv2_b, group=2)
+            X = self.conv_helper(X, conv2_W, conv2_b, group=2)
             X = tf.layers.max_pooling2d(X, 3, 2)
         with tf.variable_scope("conv_3"):
             conv3_W = tf.Variable(self.pretrained_weights['conv3'][0])
             conv3_b = tf.Variable(self.pretrained_weights['conv3'][1])
-            X = conv_helper(self, X, conv3_W, conv3_b, group=1)
+            X = self.conv_helper(X, conv3_W, conv3_b, group=1)
         with tf.variable_scope("conv_4"):
             conv4_W = tf.Variable(self.pretrained_weights['conv4'][0])
             conv4_b = tf.Variable(self.pretrained_weights['conv4'][1])
-            X = conv_helper(self, X, conv4_W, conv4_b, group=2)
+            X = self.conv_helper(X, conv4_W, conv4_b, group=2)
         with tf.variable_scope("conv_5"):
             conv5_W = tf.Variable(self.pretrained_weights['conv5'][0])
             conv5_b = tf.Variable(self.pretrained_weights['conv5'][1])
-            X = conv_helper(self, X, conv5_W, conv5_b, group=2)
+            X = self.conv_helper(X, conv5_W, conv5_b, group=2)
             X = tf.layers.max_pooling2d(X, 3, 2)
         with tf.variable_scope("fc_6"):
             X = tf.layers.conv2d(X, 4096, 5, activation=tf.nn.relu, kernel_initializer=init)
-            X = tf.layers.dropout(X, rate=options["dropout"], training=is_training)
+            X = tf.layers.dropout(X, rate=self.options["dropout"], training=is_training)
         with tf.variable_scope("fc_7"):
             X = tf.layers.conv2d(X, 4096, 1, activation=tf.nn.relu, kernel_initializer=init)
-            X = tf.layers.dropout(X, rate=options["dropout"], training=is_training)
+            X = tf.layers.dropout(X, rate=self.options["dropout"], training=is_training)
         return X
 
     def alex_net(self, X, is_training):
