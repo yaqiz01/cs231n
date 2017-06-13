@@ -78,7 +78,7 @@ def sort_logs(logs, key=None):
     else:
         return sorted(logs, key = partial(to_key, key=key))
 
-def plot_epoch(logs, figsize, **options):
+def plot_epoch(logs, figsize, ymax=100, **options):
     logscale = options['logscale']
     fig, (ax1, ax2) = plt.subplots(1,2, figsize=figsize, sharey=True)
     handles = []
@@ -110,24 +110,27 @@ def plot_epoch(logs, figsize, **options):
     ax2.set_title('val_loss')
     ax2.grid(True, ls='dashed')
     ax2.set_xlabel('epoch')
-    ax2.legend(handles=handles, loc='center left', bbox_to_anchor=(1, 0.5))
+    ax2.set_ylim(ymax=ymax)
+    ax1.legend(handles=handles, loc='lower center', ncol=2, bbox_to_anchor=(1, -0.8))
+    logymax = np.log(ax2.get_ylim()[1])/np.log(10)
+    logymin = np.log(ax2.get_ylim()[0])/np.log(10)
+    numyticks = 4
+    ylogs = np.linspace(logymin, logymax, numyticks)
+    ax2.set_yticks(10**ylogs)
+    ax2.set_yticklabels(['%.2f' % (10**l) for l in ylogs])
     fig.tight_layout()
-    fig.subplots_adjust(bottom=0.2, top=0.85, right=0.7, left=0.05)
 
 def plot_input_type(**options):
     options["toshow"] = "valmode=1,convmode=0,dropout=0.5,flowmode=0"
     logs = [log for log, _ in filterby(**options)[True]]
-    plot_epoch(logs, figsize=(9,2.5), **options)
-    if options['logscale']:
-        plt.ylim(ymax=60)
-    else:
-        plt.ylim(ymax=60)
+    plot_epoch(logs, ymax=60, figsize=(6,3.8), **options)
+    plt.subplots_adjust(bottom=0.4, top=0.85, right=0.98, left=0.1)
     plt.savefig('{}/result_input_type.png'.format(options['path']))
     plt.show()
 
 def plot_all_loss(**options):
-    plot_epoch(logs, figsize=(9,2.5), **options)
-    plt.ylim([0,100])
+    plot_epoch(logs, ymax=100, figsize=(9,2.5), **options)
+    plt.subplots_adjust(bottom=0.2, top=0.85, right=0.7, left=0.05)
     plt.savefig('{}/result_all.png'.format(options['path']))
     plt.show()
 
