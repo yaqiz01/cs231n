@@ -62,7 +62,7 @@ def linestyle(d):
 def color(d):
     if int(d['speedmode'])==0: return 'r' 
     elif int(d['speedmode'])==1: return 'g'
-    elif int(d['speedmode'])==2: return 'b'
+    elif int(d['speedmode'])==2: return 'salmon'
     elif int(d['speedmode'])==3: return 'royalblue'
     elif int(d['speedmode'])==4: return 'c'
 
@@ -78,9 +78,9 @@ def sort_logs(logs, key=None):
     else:
         return sorted(logs, key = partial(to_key, key=key))
 
-def plot_all_loss(**options):
+def plot_epoch(logs, figsize, **options):
     logscale = options['logscale']
-    fig, (ax1, ax2) = plt.subplots(1,2, figsize=(9,2.5), sharey=True)
+    fig, (ax1, ax2) = plt.subplots(1,2, figsize=figsize, sharey=True)
     handles = []
     for log in logs:
         ls = linestyle(results[log])
@@ -107,14 +107,29 @@ def plot_all_loss(**options):
         else:
             handles += (ax2.plot(results[log]['epoch'], results[log]['val_mse'], label=label,
                 color=cl, linestyle=ls))
-    ax2.set_ylim([0,max(results[log]['val_mse'])+20])
     ax2.set_title('val_loss')
     ax2.grid(True, ls='dashed')
     ax2.set_xlabel('epoch')
     ax2.legend(handles=handles, loc='center left', bbox_to_anchor=(1, 0.5))
     fig.tight_layout()
     fig.subplots_adjust(bottom=0.2, top=0.85, right=0.7, left=0.05)
+
+def plot_input_type(**options):
+    options["toshow"] = "valmode=1,convmode=0,dropout=0.5,flowmode=0"
+    logs = [log for log, _ in filterby(**options)[True]]
+    plot_epoch(logs, figsize=(9,5), **options)
+    if options['logscale']:
+        plt.ylim(ymax=60)
+    else:
+        plt.ylim(ymax=60)
+    plt.savefig('{}/result_input_type.png'.format(options['path']))
+    plt.show()
+
+def plot_all_loss(**options):
+    plot_epoch(logs, figsize=(9,2.5), **options)
+    plt.ylim([0,100])
     plt.savefig('{}/result_all.png'.format(options['path']))
+    plt.show()
 
 def plot_sep_loss(**options):
     plt.clf()
@@ -356,6 +371,8 @@ def main():
                 plot_downsample(**options)
             elif plot == 'valsample':
                 plot_valsample(**options)
+            elif plot == 'input_type':
+                plot_input_type(**options)
 
 if __name__ == "__main__":
     main()
