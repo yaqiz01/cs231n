@@ -301,7 +301,7 @@ def plot_downsample(**options):
         axes[i].set_xticklabels(x_label, rotation=30)
         axes[i].grid(True, ls='dashed')
         axes[i].set_title(lookup(results[log]))
-    fig.subplots_adjust(hspace=0.4)
+    fig.subplots_adjust(hspace=0.5)
     fig.subplots_adjust(bottom=0.15)
     plt.savefig('{}/result_downsample.png'.format(options['path']))
 
@@ -352,8 +352,8 @@ def plot_valsample(**options):
     newx += [results[log]['train_mse'][-1] for log in newlogs if len(results[log]['val_mse'])>0 ]
     newy += [results[log]['val_mse'][-1] for log in newlogs if len(results[log]['val_mse'])>0 ]
     fig, ax = plt.subplots(figsize=(4,3))
-    plt.plot(oldx, oldy, 'ro', ms=3, alpha=0.8)
-    plt.plot(newx, newy, 'go', ms=3, alpha=0.8)
+    plt.plot(oldx, oldy, 'ro', ms=3, alpha=0.8, label='shuffle-before-split')
+    plt.plot(newx, newy, 'go', ms=3, alpha=0.8, label='shuffle-directly')
     plt.plot([0,100], [0, 100], 'k-')
     ax.grid(True, ls='dashed')
     mx = max(max(oldx), max(newx), max(oldy), max(newy))+1
@@ -363,6 +363,7 @@ def plot_valsample(**options):
     ax.set_aspect('equal')
     ax.set_xlabel('Train MSE Loss')
     ax.set_ylabel('Val MSE Loss')
+    plt.legend(loc='best')
     plt.tight_layout()
     plt.savefig('{}/result_valsample.png'.format(options['path']))
 

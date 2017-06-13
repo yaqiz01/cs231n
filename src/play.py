@@ -88,6 +88,7 @@ def play(framePaths, **options):
     path = options['path']
     if mode in ['testspeed']:
         path = options['testpath']
+    if mode in ['testspeed', 'all']:
         test_mses = {}
 
     print('Playing video {}'.format(path))
@@ -160,23 +161,14 @@ def play(framePaths, **options):
             sp = 30
             sr = 30
             im = cv2.pyrMeanShiftFiltering(im, sp, sr, maxLevel=1)
-        elif mode == 'testspeed':
-            im, ans = predSpeed(im, porg, org, labels, restored_model, **options)
-            for k in ans:
-                if k not in test_mses:
-                    test_mses[k] = []
-                pred, gtruth = ans[k]
-                mse = (pred - gtruth) ** 2
-                test_mses[k].append(mse)
-            loadLabels(fn, headers, labels, '{0}/../oxts'.format(path))
         elif mode == 'all':
             h,w,_ = im.shape
             h = 200
             icmp = np.ones((h,w,3), np.uint8) * 255
             im, ans = predSpeed(im, porg, org, labels, restored_model, **options)
-            im, lights = detlight(im, org, mode='label')
-            if options['detsign']:
-                im, signs = loadMatch(im, org, fn, matches)
+            # im, lights = detlight(im, org, mode='label')
+            # if options['detsign']:
+                # im, signs = loadMatch(im, org, fn, matches)
             scores, boxes = getObj(im, checkcache=False, **options)
 
             info = []
@@ -198,9 +190,9 @@ def play(framePaths, **options):
                 else:
                     state = 'Still'
                 info.append('Current state: {0}'.format(state))
-            info.append('Current lights: [{0}]'.format(','.join(lights)))
-            if options['detsign']:
-                info.append('Current signs: [{0}]'.format(','.join(signs)))
+            # info.append('Current lights: [{0}]'.format(','.join(lights)))
+            # if options['detsign']:
+                # info.append('Current signs: [{0}]'.format(','.join(signs)))
 
             h = icmp.shape[0]
             for i, text in enumerate(info):
@@ -212,6 +204,15 @@ def play(framePaths, **options):
                 elif iscv3():
                     icmp = cv2.putText(img=icmp, text=text, org=coord, fontFace=fontface, fontScale=0.6,
                         color=bgr('k'), thickness=2, lineType=8);
+            loadLabels(fn, headers, labels, '{0}/../oxts'.format(path))
+        if mode in ['all', 'testspeed']:
+            im, ans = predSpeed(im, porg, org, labels, restored_model, **options)
+            for k in ans:
+                if k not in test_mses:
+                    test_mses[k] = []
+                pred, gtruth = ans[k]
+                mse = (pred - gtruth) ** 2
+                test_mses[k].append(mse)
             loadLabels(fn, headers, labels, '{0}/../oxts'.format(path))
         porg = org.copy()
 
@@ -254,7 +255,7 @@ def play(framePaths, **options):
 
 def demo(**options):
     options['path'] = '/Users/Yaqi/ee368/kitti/2011_09_26-3/data'
-    options['startframe'] = 80
+    options['startframe'] = 100
     options['endframe'] = 125
     play([], **options)
     options['path'] = '/Users/Yaqi/ee368/kitti/2011_09_26-1/data'

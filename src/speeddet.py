@@ -67,13 +67,10 @@ def drawAvgflow(img, avgflow):
 
 def detflow(frame, prev, cur, **options):
     flowmode = options['flowmode']
-    flow = getflow(prev, cur, **options)
+    flow = getflow(prev, cur, checkcache=False, **options)
     avgflow = getAvgChannel(flow, **options)
-    if flowmode == 'allflow':
-        frame = drawflow(frame, flow)
-    elif flowmode == 'avgflow':
-        frame = drawflow(frame, flow)
-        frame = drawAvgflow(frame, avgflow)
+    frame = drawflow(frame, flow)
+    frame = drawAvgflow(frame, avgflow)
     return frame
 
 def getflow(prev, cur, **options):
