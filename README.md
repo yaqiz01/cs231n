@@ -1,6 +1,6 @@
 # Video Processing on Vehicle Front-View Camera
 
-This is the home repository of EE368: Digital Image Processing's Final Project.
+This is the home repository of CS231N:Convolutional Neural Networks for Visual Recognition.
 
 The demo videos illustrate road sign detection, traffic light recognition, and speed 
 prediction on three KITTI benchmark videos. Due to the computation time of running 
