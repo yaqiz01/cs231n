@@ -108,7 +108,8 @@ def play(framePaths, **options):
     if (mode not in ['trainspeed', 'testspeed']):
       plt.figure(dpi=140)
     for i, impath in enumerate(files):
-        if mode in ['trainspeed']:
+        # should include all as well but will skip frame when play
+        if mode in ['trainspeed', 'testspeed']:
             if (i % sample_every) != 0:
                 continue
         fn, ext = splitext(impath)
